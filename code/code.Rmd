@@ -44,7 +44,7 @@ data.stats8 <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Exp
 
 Hemos importado varios CSV que harán las tablas de la base de datos.
 
-Ahora, sabiendo que stats1 y stats2 son el mismo dataset solo que separado por temas de tamaño, voy a unirlos yo:
+Ahora, sabiendo que todos los stats son el mismo dataset solo que separados por temas de tamaño, voy a unirlos yo:
 
 ```{r join_stats}
 
