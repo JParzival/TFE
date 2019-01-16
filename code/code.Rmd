@@ -1,0 +1,108 @@
+---
+title: "Haciendo Big Data a League of Legends"
+author: "Jorge de Andrés"
+date: "16 de enero de 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Importamos los paquetes necesarios:
+```{r paquetes}
+
+#install.packages("dplyr")
+#install.packages("pryr")
+
+library("dplyr")
+library("pryr")
+
+```
+
+
+Lo primero que voy a hacer es importar todos los datasets:
+
+```{r import_data}
+
+data.champs <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/champs.csv")
+data.matches <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/matches.csv")
+data.participants <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/participants.csv")
+data.teambans <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/teambans.csv")
+data.teamstats <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/teamstats.csv")
+data.stats1 <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/stats1.txt")
+data.stats2 <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/stats2.txt")
+data.stats3 <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/stats3.txt")
+data.stats4 <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/stats4.txt")
+data.stats5 <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/stats5.txt")
+data.stats6 <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/stats6.txt")
+data.stats7 <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/stats7.txt")
+data.stats8 <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/stats8.txt")
+
+
+```
+
+Hemos importado varios CSV que harán las tablas de la base de datos.
+
+Ahora, sabiendo que stats1 y stats2 son el mismo dataset solo que separado por temas de tamaño, voy a unirlos yo:
+
+```{r join_stats}
+
+data.stats <- rbind(data.stats1, data.stats2, data.stats3, data.stats4, data.stats5, data.stats6, data.stats7, data.stats8)
+
+# Ahora ya no me hacen falta stats1 y stats2, los borro del environment
+
+remove(data.stats1)
+remove(data.stats2)
+remove(data.stats3)
+remove(data.stats4)
+remove(data.stats5)
+remove(data.stats6)
+remove(data.stats7)
+remove(data.stats8)
+
+```
+
+Ahora que tenemos las tablas bien hechas, toca unificar algunas para comodidad posterior:
+
+```{r joining_tables}
+
+# Haciendo estas dos uniones tengo a los campeones más accesibles por el nombre
+
+data.participants <- left_join(data.champs, data.participants, by = c("id" = "championid"))
+data.teambans <- left_join(data.champs, data.teambans, by = c("id" = "championid"))
+
+# Unimos participantes con stats...
+
+data.participants.stats <- left_join(data.participants, data.stats, by = "id")
+
+# Y ahora hago otra gran unión con los partidos...
+
+data.total <- left_join(data.participants.stats, data.matches, by=c("matchid" = "id"))
+
+# Ahora puedo eliminar las tablas que no necesito al haber unido estas...
+
+remove(data.stats)
+remove(data.matches)
+remove(data.participants.stats)
+remove(data.champs)
+remove(data.participants)
+
+head(data.total)
+
+```
+
+Tamaño de mis datasets...
+
+```{r tamaño_datasets}
+
+print("El tamaño de data.total es de: ")
+object_size(data.total) # Es un dataset de 558 MB
+print("El tamaño de data.teambans es de: ")
+object_size(data.teambans) # Tabla de 22 MB
+print("El tamaño de data.teamstats es de: ")
+object_size(data.teamstats) # Tabla de 19.1 MB
+
+```
+
+
