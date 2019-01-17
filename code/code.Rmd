@@ -2,7 +2,10 @@
 title: "Haciendo Big Data a League of Legends"
 author: "Jorge de Andrés"
 date: "16 de enero de 2019"
-output: html_document
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -22,6 +25,9 @@ Importamos los paquetes necesarios:
 #install.packages("ggplot2")
 #install.packages("hexbin")
 #install.packages("RColorBrewer")
+#install.packages("FactoMineR")
+#devtools::install_github("kassambara/factoextra")
+#install.packages("factoextra")
 
 library("corrplot")
 library("dplyr")
@@ -32,6 +38,8 @@ library("wordcloud")
 library("ggplot2")
 library("hexbin")
 library("RColorBrewer")
+library("FactoMineR")
+library("factoextra")
 
 ```
 
@@ -40,19 +48,8 @@ Lo primero que voy a hacer es importar todos los datasets:
 
 ```{r import_data_csv}
 
-data.champs <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/champs.csv")
-data.matches <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/matches.csv")
-data.participants <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/participants.csv")
-data.teambans <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/teambans.csv")
-data.teamstats <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/teamstats.csv")
-data.stats1 <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/stats1.txt")
-data.stats2 <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/stats2.txt")
-data.stats3 <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/stats3.txt")
-data.stats4 <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/stats4.txt")
-data.stats5 <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/stats5.txt")
-data.stats6 <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/stats6.txt")
-data.stats7 <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/stats7.txt")
-data.stats8 <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/stats8.txt")
+data.games <- read.csv("../data/games.csv")
+data.champs <- read.csv("../data/champs.csv")
 
 ```
 
@@ -62,31 +59,9 @@ Importamos los json:
 
 ```{r import_data_json}
 
-lista.itemstrinkets <- fromJSON(file = "../data/items_trinkets.json")
-lista.spells <- fromJSON(file="../data/spells.json")
-
-# Ahora lo convertimos a dataset
-
-```
-
-
-
-Ahora, sabiendo que todos los stats son el mismo dataset solo que separados por temas de tamaño, voy a unirlos yo:
-
-```{r join_stats}
-
-data.stats <- rbind(data.stats1, data.stats2, data.stats3, data.stats4, data.stats5, data.stats6, data.stats7, data.stats8)
-
-# Ahora ya no me hacen falta stats1 y stats2, los borro del environment
-
-remove(data.stats1)
-remove(data.stats2)
-remove(data.stats3)
-remove(data.stats4)
-remove(data.stats5)
-remove(data.stats6)
-remove(data.stats7)
-remove(data.stats8)
+lista.championInfo <- fromJSON(file = "../data/champion_info.json")
+lista.championInfo2 <- fromJSON(file="../data/champion_info_2.json")
+lista.summonerSpell <- fromJSON(file="../data/summoner_spell_info.json")
 
 ```
 
@@ -95,32 +70,19 @@ Tamaño de mis datasets...
 
 ```{r tamaño_datasets}
 
-print("El tamaño de la tabla de stats es de: ")
-object_size(data.stats) # Es un dataset de 433 MB
-print("El tamaño de la tabla de teambans es de: ")
-object_size(data.teambans) # Tabla de 17.6 MB
-print("El tamaño de la tabla de teamstats es de: ")
-object_size(data.teamstats) # Tabla de 19.1 MB
-print("El tamaño de la tabla de matches es de: ")
-object_size(data.matches) # Tabla de 7.38 MB
-print("El tamaño de la tabla de participants es de: ")
-object_size(data.participants) # Tabla de 66.1 MB
+print("El tamaño de la tabla de games es de: ")
+object_size(data.games) # Es un dataset de 433 MB
 
 ```
 Esto me devuelve las filas que tengan NA:
 
 ```{r searching_for_NA}
 
-data.matches[!complete.cases(data.matches),]
-data.participants[!complete.cases(data.participants),]
-data.stats[!complete.cases(data.stats), ]
-data.teambans[!complete.cases(data.teambans), ]
-data.teamstats[!complete.cases(data.teamstats), ]
+data.games[!complete.cases(data.games),]
 
 ```
 
-Como podemos ver, el único dataframe que tiene alguna fila con NAs es data.participants.
-Por ahora no quitaremos los NAs, ya que solo son dos en un dataframe de casi dos millones de líneas, y quizás los necesite posteriormente.
+Como podemos ver, no tenemos filas con NA.
 
 Como voy a ir haciendo "pequeños proyectos" para ir sacando conocimiento por ahora no voy a fusionar ninguna tabla de primeras porque no se lo que voy a necesitar.
 Según se vayan planteando los interrogantes iré jugando con las tablas para conseguir los objetivos
@@ -132,14 +94,9 @@ Para ello, vamos intentar ver conclusiones sobre los mismos:
 
 ```{r summaries}
 
-print("Resumen de data.matches")
-summary(data.matches[, 5:6]) # Las únicas columnas interesantes son la 5 y la 6
-print("Resumen de data.participants")
-summary(data.participants)
-print("Resumen de data.stats")
-summary(data.stats[, 10:55])
-print("Resumen de data.teamstats")
-summary(data.teamstats[, 9:13])
+print("Resumen de data.games")
+summary(data.games) # Las únicas columnas interesantes son la 5 y la 6
+
 
 ```
 
@@ -147,10 +104,17 @@ Una vez que tenemos los estadísticos básicos principales, vamos a limpiar algu
 
 ```{r limpieza_Variables_no_queridas_correlacion}
 
-data.matches.clean <- data.matches[, c(-1, -2, -3, -4, -7, -8)]
-data.participants.clean <- data.participants
-data.stats.clean <- data.stats[, -1:-9]
-data.teamstats.clean <- data.teamstats[, -1:-8]
+# Ahora voy a hacer una tabla de games especial solo con las variables de las que calcularemos las correlaciones
+# Game ID es una variable que no necesito para nada, por lo que la voy a eliminar:
+
+data.games.corr <- data.games[, c(-1, -4)]
+#head(data.games.corr)
+data.games.corr <- data.games.corr[, -10:-24]
+#head(data.games.corr)
+data.games.corr <- data.games.corr[, -15:-34]
+#head(data.games.corr)
+data.games.corr <- data.games.corr[, -20:-24]
+head(data.games.corr)
 
 ```
 
@@ -158,11 +122,11 @@ data.teamstats.clean <- data.teamstats[, -1:-8]
 
 Lo primero que voy a hacer son los correlation plot de cada una de las tablas. Vamos a ver qué relaciones tenemos entre los datos, para poder ver si podemos ir sacando algunas conclusiones...
 
-```{r calculo_correlacion_matches}
+```{r calculo_correlacion_games}
 
-res.matches <- cor(data.matches.clean, method = "spearman")
+res.games <- cor(data.games.corr, method = "spearman")
 options(width = 100)
-res.matches.round <- round(res.matches, 2)
+res.games.round <- round(res.games, 2)
 
 ```
 
@@ -170,94 +134,31 @@ El primer gráfico que muestro es entre la duración de las partidas y la tempor
 
 ```{r grafico_correlaciones_variables_matches}
 
-corrplot(res.matches.round, method="circle")
+corrplot(res.games.round, method="circle", type = "upper")
 
 ```
-Como podemos apreciar, hay una ligerísima correlación entre el paso de los años y el descenso del tiempo por partida, pero no es para nada correlado.
+Podemos apreciar las siguientes correlaciones sobre destruir torres:
 
-El siguiente elemento que voy a analizar es de la tabla de estadísticas:
++ Destruir más torres tiene una relación directa con destruir inhibidores
++ Destruir más torres tiene una cierta relación directa con matar dragones
++ Destruir más torres tiene una cierta relación inversa con que el equipo contrario destruya tus torres
++ Destruir más torres tiene uan cierta relación con que el equipo contrario mate menos dragones
 
-```{r calculo_correlacion_stats}
+Respecto a ganar, obtenemos las siguientes correlaciones:
 
-data.stats.clean <- mutate_all(data.stats.clean, function(x) as.numeric(as.character(x)))
-res.stats <- cor(data.stats.clean)
-options(width = 100)
-res.stats.round <- round(res.stats, 2)
++ Muchas veces, quien destruye el primer inhibidor es el equipo que acaba ganando la partida
++ Un aumento en que el equipo 1 destruya más torres tiene que ver con que tengan más posibilidades de victoria. Esto se da con una relación inversa, ya que la victoria del equipo 1 se marca con un 1, la del 2 con un dos, y el aumento de towerkills de t1 implica una bajada en win (1 en vez de dos)
++ Lo mismi pasa con la cantidad de inhibidores destruidos, donde es también una relación muy fuerte la que hay.
++ Con el equipo 2 pasa lo mismo, lo que pasa es que, por lo explicado anteriormente, en este caso se muestra como relación direta, y de este modo podemos ver las mismas correlaciones de una parte que de otra.
 
-```
+Respecto a dragones, podemos ver:
 
-El primer gráfico que muestro es entre la duración de las partidas y la temporada en la que se está jugando:
++ Es más importante para el equipo 2 hacerse el primer dragón de cara a hacerse más que el que el equipo 1 haga el mismo.
 
-```{r grafico_correlaciones_variables_stats}
+Finalmente, respecto a el momento de la creación de la partida, podemos observar:
 
-corrplot(res.stats.round, method="circle",type = "upper", tl.cex = 0.6)
++ No tiene ninguna relación el paso del tiempo cno el aumento o disminución de ninguna de las variables.
 
-```
-
-Se puede apreciar una correlación grande entre algunas variables, como:
-
-+ Daño Verdadero y Daño Total
-+ Kills y Racha de Bajas más larga, así como con número de rachas de bajas
-+ El oro ganado, oro gastado y el nivel del campeón al final de la partida
-+ Daño mágico hecho en general y daño mágico hecho específicamente a campeones
-+ Minions neutrales matados (de la jungla) con el número de kills en propia jungla, así como en jungla ajena
-
-
-Finalmente, analizo las estadísticas de equipo:
-
-El siguiente elemento que voy a analizar es de la tabla de estadísticas:
-
-```{r calculo_correlacion_stats_team}
-
-res.teamstats <- cor(data.teamstats.clean)
-options(width = 100)
-res.teamstats.round <- round(res.teamstats, 2)
-
-```
-
-El primer gráfico que muestro es entre la duración de las partidas y la temporada en la que se está jugando:
-
-```{r grafico_correlaciones_variables_stats_team}
-
-corrplot(res.teamstats.round, method="circle",type = "upper", tl.cex = 0.6)
-
-```
-
-Podemos observar algunas relaciones, como:
-
-+ El número de torres destruidas tiene mucho que ver con el número de inhibidores destruidos
-+ El número de dragones matados tiene cierta relación con el número de torres destruidas
-
-Me gustaría también hacer correlación con la variable que posteriormente utilizaremos como etiqueta en las predicciones, y que se antoja el objetivo de la partida: Ganar.
-
-Para ello, voy a hacer un dataframe especial donde data.stats tenga añadido el elemento victoria:
-
-```{r creacion_data_stats+win}
-
-data.stats.clean <- cbind(data.stats$win, data.stats.clean)
-
-```
-
-Y ahora es cuando vuelvo a hacer el corrplot:
-
-```{r calculo_correlacion_stats+win}
-
-data.stats.clean <- mutate_all(data.stats.clean, function(x) as.numeric(as.character(x)))
-res.stats <- cor(data.stats.clean)
-options(width = 100)
-res.stats.round <- round(res.stats, 2)
-
-```
-
-El primer gráfico que muestro es entre la duración de las partidas y la temporada en la que se está jugando:
-
-```{r grafico_correlaciones_variables_stats+win}
-
-corrplot(res.stats.round, method="circle",type = "upper", tl.cex = 0.6)
-
-```
-
-Impresionantemente, de todas las estadísticas que tenemos en la tabla de stats, ninguna de ellas tiene relación directa con la victoria. La única que tiene relación inversa es el número de muertes, lo cual es lógico.
 
 
 ## Preguntas
@@ -266,224 +167,463 @@ Ahora que tenemos las correlaciones vistas, podemos pasar a hacernos preguntas.
 
 ### ¿Campeón más baneado por temporada?
 
-Uno de los elementos que más se tienen en cuenta a la hora de analizar los e-sports es el campeón más baneado por temporada. Esto es porque desde Riot Games hacen cambios a las habilidades y fuerza de los personajes, de tal manera que algunas veces algunos campeones son demasiado fuertes y se pueden bloquear al inicio de la partida. 
+Uno de los elementos que más se tienen en cuenta a la hora de analizar el League of Legends en los e-sports es el campeón más baneado por temporada o campeonato. Esto es porque desde Riot Games hacen cambios a las habilidades y fuerza de los personajes, de tal manera que algunas veces algunos campeones son demasiado fuertes y se pueden bloquear al inicio de la partida. 
 Vamos a ver cuáles han sido:
 
-Para ello, lo primero que tengo que hacer es unir las tablas de bans y partidas
+Para analizar esto, contaré la cantidad de ocurrencias y veré, en estas más de 50.000 partidas, cual es el campeón más temido entre los jugadores, tras sustiruir por los nombres.
 
-```{r join_bans_matches}
+```{r preparation_bans}
 
-data.bans.matches <- inner_join(data.teambans, data.matches, by=c("matchid" = "id"))
+# Lo que voy a hacer es contar por columnas, y luego sumo todas las columnas que he contado. Así obtengo el recuento final
 
-# Para poder ver los campeones por nombre, ahora uniré esta tabla con data.champs
+# TEAM 1
 
-data.bans.matches <- inner_join(data.bans.matches, data.champs, by = c("championid" = "id"))
+cont.bans.t1.1 <- ddply(data.games,.(t1_ban1),nrow)
+cont.bans.t1.1 <- cont.bans.t1.1[order(cont.bans.t1.1$V1, decreasing = TRUE), ]
+cont.bans.t1.2 <- ddply(data.games,.(t1_ban2),nrow)
+cont.bans.t1.2 <- cont.bans.t1.2[order(cont.bans.t1.2$V1, decreasing = TRUE), ]
+cont.bans.t1.3 <- ddply(data.games,.(t1_ban3),nrow)
+cont.bans.t1.3 <- cont.bans.t1.3[order(cont.bans.t1.3$V1, decreasing = TRUE), ]
+cont.bans.t1.4 <- ddply(data.games,.(t1_ban4),nrow)
+cont.bans.t1.4 <- cont.bans.t1.4[order(cont.bans.t1.4$V1, decreasing = TRUE), ]
+cont.bans.t1.5 <- ddply(data.games,.(t1_ban5),nrow)
+cont.bans.t1.5 <- cont.bans.t1.5[order(cont.bans.t1.5$V1, decreasing = TRUE), ]
 
-# Ahora borro la columna con el número de campepón porque no me hace más falta...
+# TEAM 2
 
-data.bans.matches <- data.bans.matches[, -3]
+cont.bans.t2.1 <- ddply(data.games,.(t2_ban1),nrow)
+cont.bans.t2.1 <- cont.bans.t2.1[order(cont.bans.t2.1$V1, decreasing = TRUE), ]
+cont.bans.t2.2 <- ddply(data.games,.(t2_ban2),nrow)
+cont.bans.t2.2 <- cont.bans.t2.2[order(cont.bans.t2.2$V1, decreasing = TRUE), ]
+cont.bans.t2.3 <- ddply(data.games,.(t2_ban3),nrow)
+cont.bans.t2.3 <- cont.bans.t2.3[order(cont.bans.t2.3$V1, decreasing = TRUE), ]
+cont.bans.t2.4 <- ddply(data.games,.(t2_ban4),nrow)
+cont.bans.t2.4 <- cont.bans.t2.4[order(cont.bans.t2.4$V1, decreasing = TRUE), ]
+cont.bans.t2.5 <- ddply(data.games,.(t2_ban5),nrow)
+cont.bans.t2.5 <- cont.bans.t2.5[order(cont.bans.t2.5$V1, decreasing = TRUE), ]
 
-# Finalmente, voy a borrar también las columnas de creación, versión, queueid y platformid porque tampoco me van a hacer falta nunca
+# Ahora lo que tengo que hacer es sumar todas estas columnas de V1 según el valor de name...
 
-data.bans.matches <- data.bans.matches[, c(-5, -9, -10)]
-head(data.bans.matches)
+df.bans <- left_join(cont.bans.t1.1, cont.bans.t1.2, by =c("t1_ban1" = "t1_ban2"))
+df.bans <- left_join(df.bans, cont.bans.t1.3, by =c("t1_ban1" = "t1_ban3"))
+df.bans <- left_join(df.bans, cont.bans.t1.4, by =c("t1_ban1" = "t1_ban4"))
+df.bans <- left_join(df.bans, cont.bans.t1.5, by =c("t1_ban1" = "t1_ban5"))
+
+df.bans <- left_join(df.bans, cont.bans.t2.1, by =c("t1_ban1" = "t2_ban1"))
+df.bans <- left_join(df.bans, cont.bans.t2.2, by =c("t1_ban1" = "t2_ban2"))
+df.bans <- left_join(df.bans, cont.bans.t2.3, by =c("t1_ban1" = "t2_ban3"))
+df.bans <- left_join(df.bans, cont.bans.t2.4, by =c("t1_ban1" = "t2_ban4"))
+df.bans <- left_join(df.bans, cont.bans.t2.5, by =c("t1_ban1" = "t2_ban5"))
+
+df.bans$total <- rowSums( df.bans[,2:11] )
+
+remove(cont.bans.t1.1)
+remove(cont.bans.t1.2)
+remove(cont.bans.t1.3)
+remove(cont.bans.t1.4)
+remove(cont.bans.t1.5)
+remove(cont.bans.t2.1)
+remove(cont.bans.t2.2)
+remove(cont.bans.t2.3)
+remove(cont.bans.t2.4)
+remove(cont.bans.t2.5)
+
+df.bans <- df.bans[order(df.bans$total, decreasing = TRUE), ]
+df.bans <- df.bans[, -2:-11]
+head(df.bans)
+
+# Finalmente, junto con la tabla de data.champs para ponerles nombre...
+
+df.bans <- left_join(df.bans, data.champs, by=c("t1_ban1" = "id"))
+df.bans <- df.bans[, -1]
+head(df.bans)
+
 
 ```
+Ahora que tenemos todos los bans contados, es hora de hacer un wordcloud para poder verlo visualmente:
 
-Ahora que tenemos el dataset preparado, pasamos a ordenarlo por season, separar las seasons y contar el número de veces que se han baneado a cada uno de ellos:
-
-```{r split_dataframe_bans_matches}
-
-split <- split( data.bans.matches , f = data.bans.matches$seasonid )
-
-# Como solo tenemos 8 seasons, lo hacemos del 1 al 6
-
-datasplit.season3 <- split[[1]]
-datasplit.season4 <- split[[2]]
-datasplit.season5 <- split[[3]]
-datasplit.season6 <- split[[4]]
-datasplit.season7 <- split[[5]]
-datasplit.season8 <- split[[6]]
-
-```
-
-Calculamos el número de veces que se han baneado a los campeones por season:
-
-SEASON 3
-
-```{r bans_season3}
-
-dataNombres.season3 <- ddply(datasplit.season3,.(name),nrow)
-dataNombres.season3 <- dataNombres.season3[order(dataNombres.season3$V1, decreasing = TRUE), ]
-head(dataNombres.season3)
-
-```
-Obtenemos el wordcloud...
-
-```{r wordcloud_bans_season3}
+```{r wordcloud_bans}
 
 set.seed(9999) # Para el mantenimiento del mismo patrón
 
-wordcloud(words = dataNombres.season3$name, freq = dataNombres.season3$V1, min.freq = 1, random.order=FALSE, rot.per=0.5, colors=c("Orange","Purple","Pink", "Red", "Yellow", "Green", "Blue", "Black"))
+wordcloud(words = df.bans$name, freq = df.bans$total, min.freq = 1, random.order=FALSE, rot.per=0.5, colors=c("Orange","Purple","Pink", "Red", "Yellow", "Green", "Blue", "Black"))
 
-# Ratio
+# Ratio del más baneado
 
-print("El porcentaje de baneo a Yasuo en la season 3 fue de: ")
-ratio.season3 <- dataNombres.season3$V1[1]/sum(dataNombres.season3$V1)
-print(ratio.season3)
-
-```
-
-
-SEASON 4
-
-```{r bans_season4}
-
-dataNombres.season4 <- ddply(datasplit.season4,.(name),nrow)
-dataNombres.season4 <- dataNombres.season4[order(dataNombres.season4$V1, decreasing = TRUE), ]
-head(dataNombres.season4)
-
-```
-Obtenemos el wordcloud de la season 4...
-
-```{r wordcloud_bans_season4}
-
-set.seed(9999)
-
-wordcloud(words = dataNombres.season4$name, freq = dataNombres.season4$V1, min.freq = 1, random.order=FALSE, rot.per=0.5, colors=c("Orange","Purple","Pink", "Red", "Yellow", "Green", "Blue", "Black"))
-
-# Ratio
-
-print("El porcentaje de baneo a Akali en la season 4 fue de: ")
-ratio.season4 <- dataNombres.season4$V1[1]/sum(dataNombres.season4$V1)
-print(ratio.season4)
-
-```
-
-
-SEASON 5
-
-```{r bans_season5}
-
-dataNombres.season5 <- ddply(datasplit.season5,.(name),nrow)
-dataNombres.season5 <- dataNombres.season5[order(dataNombres.season5$V1, decreasing = TRUE), ]
-head(dataNombres.season5)
-
-```
-Wordcloud de la season 5...
-
-```{r wordcloud_bans_season5}
-
-set.seed(9999)
-
-wordcloud(words = dataNombres.season5$name, freq = dataNombres.season5$V1, min.freq = 350, random.order=FALSE, rot.per=0.5, colors=c("Orange","Purple","Pink", "Red", "Yellow", "Green", "Blue", "Black")) # He subido el threshold porque si no no cabían todos los importantes en la página
-
-# Ratio
-
-print("El porcentaje de baneo a Darius en la season 5 fue de: ")
-ratio.season5 <- dataNombres.season5$V1[1]/sum(dataNombres.season5$V1)
-print(ratio.season5)
-
-```
-
-
-SEASON 6
-
-```{r bans_season6}
-
-dataNombres.season6 <- ddply(datasplit.season6,.(name),nrow)
-dataNombres.season6 <- dataNombres.season6[order(dataNombres.season6$V1, decreasing = TRUE), ]
-head(dataNombres.season6)
-
-```
-Wordcloud de la season 6...
-
-```{r wordcloud_bans_season6}
-
-set.seed(9999)
-
-wordcloud(words = dataNombres.season6$name, freq = dataNombres.season6$V1, min.freq = 1, random.order=FALSE, rot.per=0.5, colors=c("Orange","Purple","Pink", "Red", "Yellow", "Green", "Blue", "Black"))
-
-# Ratio
-
-print("El porcentaje de baneo a Dr.Mundo en la season 6 fue de: ")
-ratio.season6 <- dataNombres.season6$V1[1]/sum(dataNombres.season6$V1)
-print(ratio.season6)
-
-```
-
-
-SEASON 7
-
-```{r bans_season7}
-
-dataNombres.season7 <- ddply(datasplit.season7,.(name),nrow)
-dataNombres.season7 <- dataNombres.season7[order(dataNombres.season7$V1, decreasing = TRUE), ]
-head(dataNombres.season7)
-
-```
-
-Wordcloud de la season 7...
-
-```{r wordcloud_bans_season7}
-
-set.seed(9999)
-
-wordcloud(words = dataNombres.season7$name, freq = dataNombres.season7$V1, min.freq = 1, random.order=FALSE, rot.per=0.5, colors=c("Orange","Purple","Pink", "Red", "Yellow", "Green", "Blue", "Black"))
-
-# Ratio
-
-print("El porcentaje de baneo a Zed en la season 7 fue de: ")
-ratio.season7 <- dataNombres.season7$V1[1]/sum(dataNombres.season7$V1)
-print(ratio.season7)
-
-```
-
-
-SEASON 8
-
-```{r bans_season8}
-
-dataNombres.season8 <- ddply(datasplit.season8,.(name),nrow)
-dataNombres.season8 <- dataNombres.season8[order(dataNombres.season8$V1, decreasing = TRUE), ]
-head(dataNombres.season3)
-
-```
-Wordcloud de la season 8...
-
-```{r wordcloud_bans_season8}
-
-set.seed(9999) # Para el mantenimiento del mismo patrón
-
-wordcloud(words = dataNombres.season8$name, freq = dataNombres.season8$V1, min.freq = 1, random.order=FALSE, rot.per=0.5, colors=c("Orange","Purple","Pink", "Red", "Yellow", "Green", "Blue", "Black"))
-
-# Ratio
-
-print("El porcentaje de baneo a Yasuo en la season 8 fue de: ")
-ratio.season8 <- dataNombres.season8$V1[1]/sum(dataNombres.season8$V1)
-print(ratio.season8)
+print("El porcentaje de baneo a Yasuo es de: ")
+ratio.ban.yasuo <- df.bans$total[1]/sum(df.bans$total)
+print(ratio.ban.yasuo)
 
 ```
 
 Pregunta respondida.
 
-Pasemos a la siguiente pregunta:
+### ¿Matar un mayor número de dragones aumenta las posibilidades de victoria?
 
-### ¿Son importantes los wards para ganar?
+Esto lo vamos a responder para el equipo 1 y para el equipo 2, de tal manera que podamos ver si tiene más influencia en uno u en otro.
 
-Mi posición principal en el juego es la de support. En esta posición, sirvo de apoyo al equipo, ayudando a conseguir bajas, sacrificándome cuando sea necesario... y proporcionando visión al equipo.
+Para esto, necesito la cantidad de dragones matados por el equipo que venció y por el equipo que perdió, y esos datos los tengo en el dataset de data.games.
 
-Por lo tanto, esta función que cumplo de proporcionar visión... ¿cómo de necesaria es?
+```{r get_dataset_dragons_win}
 
-Lo primero que voy a hacer es preparar el dataset. Como necesito la estadística del número de wards plantados y de la victoria, y todo esto lo tengo en la misma tabla, no necesito juntar tablas, de tal manera que procedo:
+data.dragons.win <- cbind(data.games$t1_dragonKills, data.games$t2_dragonKills, data.games$winner)
+colnames(data.dragons.win) <- c("KillsT1", "KillsT2", "Win")
+head(data.dragons.win)
 
-```{r plot_wards_win}
+```
 
-#Vemos la correlación entre las variables...
+Primero vamos a estudiar la correlación. La hemos visto anteriormente, pero vamos a hacerlo ahora en especial de esta tabla para verlo de una manera más grande:
 
-cor(data.stats$wardsplaced, data.stats$win)
 
+```{r calculo_correlacion_dragons_win}
+
+res.dragons.win <- cor(data.dragons.win, method = "spearman")
+options(width = 100)
+res.dragons.win.round <- round(res.dragons.win, 2)
+
+```
+
+```{r grafico_correlaciones_dragons_win}
+
+corrplot(res.dragons.win.round, method="circle", type = "upper", tl.srt = 0.7)
+
+```
+
+Como podemos ver, tenemos una correlación de aproximadamente el 50% entre el aumento del número de dragones matados y conseguir la victoria.
+
+
+#### Equipo 1
+
+Vamos a ver el número de dragones matados por el equipo 1 respecto a la victoria:
+
+```{r mosaicplot_dragons_t1}
+
+mosaicplot(table(data.dragons.win[, 1], data.dragons.win[, 3]), main='Winrate por dragones matados, Equipo 1', shade=TRUE)
+
+```
+
+Como podemos ver, el equipo 1, si no mata a ningún dragón, tiene serias posibilidades de no ser el equipo que gane.
+Conforme va matando dragones, aumenta la posibilidad, especialmente con el paso de 1 a 2 dragones, donde se planta con una mayor parte de las posibilidades.
+
+A partir de los 3 dragones matados, el hecho de matar más no tiene prácticamente influencia en el resultado final.
+
+#### Equipo 2
+
+Procedemos igual con el equipo 2:
+
+```{r mosaicplot_dragons_t2}
+
+mosaicplot(table(data.dragons.win[, 2], data.dragons.win[, 3]), main='Winrate por dragones matados, Equipo 2', shade=TRUE)
+
+```
+
+Como se puede observar, las distribuciones son prácticamente similares, solo que en espejo como es normal.
+
+
+### ¿Cuales son los campeones más escogidos?
+
+Sabemos que Yasuo es el campeón más baneado, con un 6% de banrate.
+Ahora me pregunto cual es el campeón más escogido para jugar.
+
+Para ello, tenemos que seguir la misma metodología que en la parte de los baneos:
+
+```{r preparation_picks}
+
+# Lo que voy a hacer es contar por columnas, y luego sumo todas las columnas que he contado. Así obtengo el recuento final
+
+# TEAM 1
+
+cont.picks.t1.1 <- ddply(data.games,.(t1_champ1id),nrow)
+cont.picks.t1.1 <- cont.picks.t1.1[order(cont.picks.t1.1$V1, decreasing = TRUE), ]
+cont.picks.t1.2 <- ddply(data.games,.(t1_champ2id),nrow)
+cont.picks.t1.2 <- cont.picks.t1.2[order(cont.picks.t1.2$V1, decreasing = TRUE), ]
+cont.picks.t1.3 <- ddply(data.games,.(t1_champ3id),nrow)
+cont.picks.t1.3 <- cont.picks.t1.3[order(cont.picks.t1.3$V1, decreasing = TRUE), ]
+cont.picks.t1.4 <- ddply(data.games,.(t1_champ4id),nrow)
+cont.picks.t1.4 <- cont.picks.t1.4[order(cont.picks.t1.4$V1, decreasing = TRUE), ]
+cont.picks.t1.5 <- ddply(data.games,.(t1_champ5id),nrow)
+cont.picks.t1.5 <- cont.picks.t1.5[order(cont.picks.t1.5$V1, decreasing = TRUE), ]
+
+# TEAM 2
+
+cont.picks.t2.1 <- ddply(data.games,.(t2_champ1id),nrow)
+cont.picks.t2.1 <- cont.picks.t2.1[order(cont.picks.t2.1$V1, decreasing = TRUE), ]
+cont.picks.t2.2 <- ddply(data.games,.(t2_champ2id),nrow)
+cont.picks.t2.2 <- cont.picks.t2.2[order(cont.picks.t2.2$V1, decreasing = TRUE), ]
+cont.picks.t2.3 <- ddply(data.games,.(t2_champ3id),nrow)
+cont.picks.t2.3 <- cont.picks.t2.3[order(cont.picks.t2.3$V1, decreasing = TRUE), ]
+cont.picks.t2.4 <- ddply(data.games,.(t2_champ4id),nrow)
+cont.picks.t2.4 <- cont.picks.t2.4[order(cont.picks.t2.4$V1, decreasing = TRUE), ]
+cont.picks.t2.5 <- ddply(data.games,.(t2_champ5id),nrow)
+cont.picks.t2.5 <- cont.picks.t2.5[order(cont.picks.t2.5$V1, decreasing = TRUE), ]
+
+# Ahora lo que tengo que hacer es sumar todas estas columnas de V1 según el valor de name...
+
+df.picks <- left_join(cont.picks.t1.1, cont.picks.t1.2, by =c("t1_champ1id" = "t1_champ2id"))
+df.picks <- left_join(df.picks, cont.picks.t1.3, by =c("t1_champ1id" = "t1_champ3id"))
+df.picks <- left_join(df.picks, cont.picks.t1.4, by =c("t1_champ1id" = "t1_champ4id"))
+df.picks <- left_join(df.picks, cont.picks.t1.5, by =c("t1_champ1id" = "t1_champ5id"))
+
+df.picks <- left_join(df.picks, cont.picks.t2.1, by =c("t1_champ1id" = "t2_champ1id"))
+df.picks <- left_join(df.picks, cont.picks.t2.2, by =c("t1_champ1id" = "t2_champ2id"))
+df.picks <- left_join(df.picks, cont.picks.t2.3, by =c("t1_champ1id" = "t2_champ3id"))
+df.picks <- left_join(df.picks, cont.picks.t2.4, by =c("t1_champ1id" = "t2_champ4id"))
+df.picks <- left_join(df.picks, cont.picks.t2.5, by =c("t1_champ1id" = "t2_champ5id"))
+
+df.picks$total <- rowSums( df.picks[,2:11] )
+
+remove(cont.picks.t1.1)
+remove(cont.picks.t1.2)
+remove(cont.picks.t1.3)
+remove(cont.picks.t1.4)
+remove(cont.picks.t1.5)
+remove(cont.picks.t2.1)
+remove(cont.picks.t2.2)
+remove(cont.picks.t2.3)
+remove(cont.picks.t2.4)
+remove(cont.picks.t2.5)
+
+df.picks <- df.picks[order(df.picks$total, decreasing = TRUE), ]
+df.picks <- df.picks[, -2:-11]
+head(df.picks)
+
+# Finalmente, junto con la tabla de data.champs para ponerles nombre...
+
+df.picks <- left_join(df.picks, data.champs, by=c("t1_champ1id" = "id"))
+df.picks <- df.picks[, -1]
+head(df.picks)
 
 
 ```
+Ahora que tenemos todos los picks contados, es hora de hacer un wordcloud para poder verlo visualmente:
+
+```{r wordcloud_picks, warning=FALSE}
+
+set.seed(9998) # Para el mantenimiento del mismo patrón
+
+wordcloud(words = df.picks$name, freq = df.picks$total, min.freq = 3000, random.order=FALSE, rot.per=0.5, colors=c("Orange","Purple","Pink", "Red", "Yellow", "Green", "Blue", "Black"))
+
+# Ratio del más baneado
+
+print("El porcentaje de pick de Thresh es de: ")
+ratio.pick.thresh <- df.picks$total[1]/sum(df.picks$total)
+print(ratio.pick.thresh)
+
+```
+
+Está muy bien que Thresh y Tristana sean los más elegidos, pero... ¿esto es porque conllevan mayor victoria de partidas?
+Vamos a calcularlo:
+
+### ¿Qué camepones conllevan un mayor winrate?
+
+Para esto, lo primero que tenemos que hacer es crear un nuevo dataframe con los campeones que han ganado cada partida:
+
+```{r creacion_dataframe_Campeones_winners}
+
+dataframe.winners.1 <- filter(data.games, winner == "1") 
+
+# En este dataframe, solo me interesan las columnas de los campeones elegidos por el equipo 1, por lo que solo me quedo con ellas:
+
+dataframe.winners.1 <- dataframe.winners.1[, c(12, 15, 18, 21, 24)]
+colnames(dataframe.winners.1) <- c("Pick1", "Pick2", "Pick3", "Pick4", "Pick5")
+
+# Hacemos lo mismo con los ganadores del equipo 2
+
+dataframe.winners.2 <- filter(data.games, winner == "2") 
+
+# En este dataframe, solo me interesan las columnas de los campeones elegidos por el equipo 1, por lo que solo me quedo con ellas:
+
+dataframe.winners.2 <- dataframe.winners.2[, c(37, 40, 43, 46, 49)]
+colnames(dataframe.winners.2) <- c("Pick1", "Pick2", "Pick3", "Pick4", "Pick5")
+
+# Ahora los juntamos...
+
+dataframe.winners <- rbind(dataframe.winners.1, dataframe.winners.2)
+
+remove(dataframe.winners.1)
+remove(dataframe.winners.2)
+
+
+```
+
+Ahora ya tenemos preparado el dataframe para poder jugar con él.
+Procedemos contando el número de ocurrencias que hay de cada campeón, y con esto veremos cual es el campeón que más se repite en este dataframe donde solo están las victorias:
+
+```{r count_occurrences_winners}
+
+# Ahora voy a llevar todas las columnas a una:
+
+dataframe.winners <- data.frame(all = c(dataframe.winners[,"Pick1"], dataframe.winners[,"Pick2"], dataframe.winners[,"Pick3"], dataframe.winners[,"Pick4"], dataframe.winners[,"Pick5"]))
+
+head(dataframe.winners)
+
+dataframe.winners <- left_join(dataframe.winners, data.champs, by=c("all" = "id"))
+
+dataframe.winners <- dataframe.winners[, -1]
+
+head(dataframe.winners)
+
+# Ahora tenemos todo el dataframe en una única columna, donde solo nos queda ordenar y contar el número de ocurrencias:
+
+dataframe.winners <- dataframe.winners[order(dataframe.winners)]
+head(dataframe.winners)
+
+# Contamos
+
+cantidad <- as.data.frame(table(dataframe.winners))
+
+cantidad <- cantidad[order(cantidad$Freq, decreasing = TRUE), ]
+colnames(cantidad) <- c("name", "freq")
+head(cantidad)
+
+
+```
+
+Como podemos ver, los campeones más elegidos son Tristana y Thresh, que casualmente, como acabamos de probar, son los que tienen más victorias en su haber. También, la tercera con más picks es Vayne, y también es la tercera en cantidad de victorias.
+
+Vamos a calcular el ratio pick-victory:
+
+```{r calculo_ratio_pick_victory}
+
+# Para hacer esto, voy a juntar los dos dataframes en uno solo, juntando por el valor del campeón (nombre), y una vez hecho esto podré restar entre mismas columnas
+
+# No puedo hacer un join normal porque todos mis elementos de texto son factors, por eso lo reconvierto
+
+cantidad <- data.frame(cantidad, stringsAsFactors = FALSE)
+colnames(cantidad) <- c("name", "freq_win")
+
+df.picks <- data.frame(df.picks, stringsAsFactors = FALSE)
+colnames(df.picks) <- c("total_picks", "name")
+
+dataframe.pick.win <- inner_join(cantidad, df.picks, by="name")
+
+# Ahora que tengo los datos a mano, podemos hacer las divisiones:
+
+dataframe.pick.win <- transform(dataframe.pick.win, ratio = dataframe.pick.win[, 2] / dataframe.pick.win[, 3])
+
+dataframe.pick.win <- dataframe.pick.win[order(dataframe.pick.win$ratio, decreasing = TRUE), ]
+
+head(dataframe.pick.win)
+
+```
+
+Es interesante ver que, a la vista de estos resultados, la gente banea lo que ve mucho, no lo que de verdad gana partidas.
+Como podemos observar, Janna, Sona y Yorick son los 3 campeones que más porcentaje de partidas ganan. En cambio, a la hora de escogerlos los vemos en las posiciones 7, 30 y 124.
+Respecto a bans, si tantas partidas ganan la masa debería de banearlos, pero se encuentran en las posiciones 5, 91 y 96, por lo que la gente no se da cuenta del peligro de estos campeones en las manos adecuadas.
+
+
+### ¿El lado rojo (equipo 2) pierde más partidas?
+
+Una de las afirmaciones que corre por la comunidad de League of Legends es la creencia de que el lado rojo, correspondiente con el equipo 2 en nuestro dataset, es el que pierde un mayor número de partidas. Para visualizar esto, lo único que hay que hacer es obtener el winrate del equipo rojo respecto al total de partidas:
+
+```{r winrate_rojo}
+
+columna.wins <- data.games$winner
+cantidad.wins <- as.data.frame(table(columna.wins))
+colnames(cantidad.wins) <- c("winner", "frequency")
+head(cantidad.wins)
+
+# Si calculamos el ratio...
+
+ratio.red <- cantidad.wins[2, 2] / (cantidad.wins[1, 2] + cantidad.wins[2, 2])
+ratio.red
+
+ratio.blue <- cantidad.wins[1, 2] / (cantidad.wins[1, 2] + cantidad.wins[2, 2])
+ratio.blue
+
+```
+
+Es decir, el grupo que juega en el lado rojo gana el 49,35% de las partidas, mientras que el que juega en el lado azul gana el 50,64%.
+
+Vamos a verlo en forma de gráfica:
+
+```{r barplot_winrate_teams}
+ratios_win <- c(ratio.blue, ratio.red)
+barplot(ratios_win, main="Victorias por equipo", ylab="Equipo", col = c("Blue", "Red"))
+
+```
+
+
+### ¿Quién consigue más primeros objetivos?
+
+Los primeros objetivos son cruciales en la partida, ya que algunos dan extra de oro, pero todos empiezan a decantar la partida a tu favor. Debido a ello, el análisis de si existe alguna diferencia entre los equipos a la hora de conseguir los primeros objetivos se plantea crucial.
+
+Para ello, contaré para cada columna de primeros objetivos qué equipo ha conseguido ser el mejor, y por qué porcentaje, y entonces determinaré si hay alguna ventaja en alguno de los objetivos.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## PCA
+
+Vamos a hacer ahora un análisis de las componentes principales:
+Para los cálculos, uso la matriz con el centrado y escalado ya hechos
+
+```{r PCA_Calculations}
+
+resultado.pca <- PCA(data.games.corr, graph = FALSE)
+
+#Con la siguiente línea podemos ver que podemos hacer con esto calculado
+print(resultado.pca)
+
+```
+Nos interesa ver los eigenvalues, que son los que presentarán la cantidad de varianza que aportan las variables:
+
+```{r table_eigenvalues_PCA}
+
+eigenvalues.PCA <- resultado.pca$eig
+eigenvalues.PCA
+
+```
+
+Como podemos ver, tenemos 19 componentes principales (una por cada dimensión), y vemos que solo con 10 variables ya tenemos un 90% de explicación.
+Además, de cara a la representación en dos dimensiones, podemos ver que con solo las dos variables con más varianza tenemos una explicación del 47,7%.
+
+Ahora, para completar este apartado de PCA, lo que voy a hacer es sacar la gráfica de la varianza acumulada con los valores anteriores:
+
+```{r PCA_eigenvalues_graph}
+
+plotPCA <- fviz_screeplot(resultado.pca, ncp=19, main="Barplot de explicación de varianza", ylab="Porcentaje de explicación", xlab="Dimensión")
+plot(plotPCA)
+
+```
+
+Ahora voy a sacar un "Factor Map" de las variables. Esto lo puedo hacer gracias a las coordenadas que me da una de las variables tras hacer el PCA.
+Así, voy primero a ver la tabla y luego voy a sacar el mapa:
+
+```{r PCA_Coordinates}
+
+head(resultado.pca$var$coord)
+
+```
+Como se puede ver, me está poniendo mis 24 variables en 5 dimensiones, con unas coordenadas concretas. Ahora, lo que voy a hacer, es representarlo.
+Con esta representación podré sacar algunas conclusiones:
+
+```{r PCA_Coordinates_Graph}
+
+fviz_pca_var(resultado.pca)
+
+```
+
+Es interesante ver como no hay nada que vaya en la misma dirección que la victoria. T1 tiene que ser interpretado de una manera en espejo respecto al eje de las Y, y vemos como muchísimas variables como el heraldo, first blood, número de dragones... todas tienen más o menos la misma importancia de cara a conseguir la victoria.
+
+Vemos como la duración del juego forma un ángulo de 90 grados con la victoria, lo cual significa que no tiene nada que ver.
+
+```{r plot_coordendas_individuos}
+
+fviz_pca_ind(resultado.pca)
+
+```
+
+Como se puede apreciar en este gráfico también, prácticamente todas las partidas forman un gran cluster (representado sobre las dos componentes con más variabilidad), y esto nos demuestra que no hay demasiada varianza entre unas partidas y otras. En otras palabras, no podemos distinguir fácilmente varios tipos de partidas, todas son parecidas y no hay diferencias suficientes para clasificar en grupos.
 
