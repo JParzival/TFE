@@ -1,5 +1,15 @@
 "0","#install.packages(""dplyr"")"
 "0","#install.packages(""pryr"")"
+"0","#install.packages(""corrplot"")"
+"0","#install.packages(""rjson"")"
+"0","#install.packages(""plyr"")"
+"0","#install.packages(""wordcloud"")"
+"0","#install.packages(""ggplot2"")"
+"0","#install.packages(""hexbin"")"
+"0","#install.packages(""RColorBrewer"")"
+"0","library(""corrplot"")"
+"2","corrplot 0.84 loaded
+"
 "0","library(""dplyr"")"
 "2","
 Attaching package: ‘dplyr’
@@ -17,3 +27,31 @@ Attaching package: ‘dplyr’
 "
 "0","library(""pryr"")"
 "2","package ‘pryr’ was built under R version 3.5.2"
+"0","library(""rjson"")"
+"2","package ‘rjson’ was built under R version 3.5.2"
+"0","library(""plyr"")"
+"2","-------------------------------------------------------------------------------------------------------------------------------------------------------
+"
+"2","You have loaded plyr after dplyr - this is likely to cause problems.
+If you need functions from both plyr and dplyr, please load plyr first, then dplyr:
+library(plyr); library(dplyr)
+"
+"2","-------------------------------------------------------------------------------------------------------------------------------------------------------
+"
+"2","
+Attaching package: ‘plyr’
+
+"
+"2","The following objects are masked from ‘package:dplyr’:
+
+    arrange, count, desc, failwith, id, mutate, rename, summarise, summarize
+
+"
+"0","library(""wordcloud"")"
+"2","package ‘wordcloud’ was built under R version 3.5.2"
+"0","library(""ggplot2"")"
+"2","package ‘ggplot2’ was built under R version 3.5.2"
+"2","Need help? Try Stackoverflow: https://stackoverflow.com/tags/ggplot2.
+"
+"0","library(""hexbin"")"
+"0","library(""RColorBrewer"")"

@@ -10,20 +10,35 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 Importamos los paquetes necesarios:
+
 ```{r paquetes}
 
 #install.packages("dplyr")
 #install.packages("pryr")
+#install.packages("corrplot")
+#install.packages("rjson")
+#install.packages("plyr")
+#install.packages("wordcloud")
+#install.packages("ggplot2")
+#install.packages("hexbin")
+#install.packages("RColorBrewer")
 
+library("corrplot")
 library("dplyr")
 library("pryr")
+library("rjson")
+library("plyr")
+library("wordcloud")
+library("ggplot2")
+library("hexbin")
+library("RColorBrewer")
 
 ```
 
 
 Lo primero que voy a hacer es importar todos los datasets:
 
-```{r import_data}
+```{r import_data_csv}
 
 data.champs <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/champs.csv")
 data.matches <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/matches.csv")
@@ -39,10 +54,22 @@ data.stats6 <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Exp
 data.stats7 <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/stats7.txt")
 data.stats8 <- read.csv("C:/Users/jorge/Desktop/Documentos Clase/Universidad/Experto Big Data/TFE/data/stats8.txt")
 
-
 ```
 
 Hemos importado varios CSV que harán las tablas de la base de datos.
+
+Importamos los json:
+
+```{r import_data_json}
+
+lista.itemstrinkets <- fromJSON(file = "../data/items_trinkets.json")
+lista.spells <- fromJSON(file="../data/spells.json")
+
+# Ahora lo convertimos a dataset
+
+```
+
+
 
 Ahora, sabiendo que todos los stats son el mismo dataset solo que separados por temas de tamaño, voy a unirlos yo:
 
@@ -63,46 +90,400 @@ remove(data.stats8)
 
 ```
 
-Ahora que tenemos las tablas bien hechas, toca unificar algunas para comodidad posterior:
-
-```{r joining_tables}
-
-# Haciendo estas dos uniones tengo a los campeones más accesibles por el nombre
-
-data.participants <- left_join(data.champs, data.participants, by = c("id" = "championid"))
-data.teambans <- left_join(data.champs, data.teambans, by = c("id" = "championid"))
-
-# Unimos participantes con stats...
-
-data.participants.stats <- left_join(data.participants, data.stats, by = "id")
-
-# Y ahora hago otra gran unión con los partidos...
-
-data.total <- left_join(data.participants.stats, data.matches, by=c("matchid" = "id"))
-
-# Ahora puedo eliminar las tablas que no necesito al haber unido estas...
-
-remove(data.stats)
-remove(data.matches)
-remove(data.participants.stats)
-remove(data.champs)
-remove(data.participants)
-
-head(data.total)
-
-```
 
 Tamaño de mis datasets...
 
 ```{r tamaño_datasets}
 
-print("El tamaño de data.total es de: ")
-object_size(data.total) # Es un dataset de 558 MB
-print("El tamaño de data.teambans es de: ")
-object_size(data.teambans) # Tabla de 22 MB
-print("El tamaño de data.teamstats es de: ")
+print("El tamaño de la tabla de stats es de: ")
+object_size(data.stats) # Es un dataset de 433 MB
+print("El tamaño de la tabla de teambans es de: ")
+object_size(data.teambans) # Tabla de 17.6 MB
+print("El tamaño de la tabla de teamstats es de: ")
 object_size(data.teamstats) # Tabla de 19.1 MB
+print("El tamaño de la tabla de matches es de: ")
+object_size(data.matches) # Tabla de 7.38 MB
+print("El tamaño de la tabla de participants es de: ")
+object_size(data.participants) # Tabla de 66.1 MB
+
+```
+Esto me devuelve las filas que tengan NA:
+
+```{r searching_for_NA}
+
+data.matches[!complete.cases(data.matches),]
+data.participants[!complete.cases(data.participants),]
+data.stats[!complete.cases(data.stats), ]
+data.teambans[!complete.cases(data.teambans), ]
+data.teamstats[!complete.cases(data.teamstats), ]
 
 ```
 
+Como podemos ver, el único dataframe que tiene alguna fila con NAs es data.participants.
+Por ahora no quitaremos los NAs, ya que solo son dos en un dataframe de casi dos millones de líneas, y quizás los necesite posteriormente.
+
+Como voy a ir haciendo "pequeños proyectos" para ir sacando conocimiento por ahora no voy a fusionar ninguna tabla de primeras porque no se lo que voy a necesitar.
+Según se vayan planteando los interrogantes iré jugando con las tablas para conseguir los objetivos
+
+# Análisis Exploratorio
+
+Empezamos por el análisis exploratorio de los datos.
+Para ello, vamos intentar ver conclusiones sobre los mismos:
+
+```{r summaries}
+
+print("Resumen de data.matches")
+summary(data.matches[, 5:6]) # Las únicas columnas interesantes son la 5 y la 6
+print("Resumen de data.participants")
+summary(data.participants)
+print("Resumen de data.stats")
+summary(data.stats[, 10:55])
+print("Resumen de data.teamstats")
+summary(data.teamstats[, 9:13])
+
+```
+
+Una vez que tenemos los estadísticos básicos principales, vamos a limpiar algunos datasets de variables que no necesitamos para poder hacer análisis de variables con su correlación y similares...
+
+```{r limpieza_Variables_no_queridas_correlacion}
+
+data.matches.clean <- data.matches[, c(-1, -2, -3, -4, -7, -8)]
+data.participants.clean <- data.participants
+data.stats.clean <- data.stats[, -1:-9]
+data.teamstats.clean <- data.teamstats[, -1:-8]
+
+```
+
+## Correlation Plots
+
+Lo primero que voy a hacer son los correlation plot de cada una de las tablas. Vamos a ver qué relaciones tenemos entre los datos, para poder ver si podemos ir sacando algunas conclusiones...
+
+```{r calculo_correlacion_matches}
+
+res.matches <- cor(data.matches.clean, method = "spearman")
+options(width = 100)
+res.matches.round <- round(res.matches, 2)
+
+```
+
+El primer gráfico que muestro es entre la duración de las partidas y la temporada en la que se está jugando:
+
+```{r grafico_correlaciones_variables_matches}
+
+corrplot(res.matches.round, method="circle")
+
+```
+Como podemos apreciar, hay una ligerísima correlación entre el paso de los años y el descenso del tiempo por partida, pero no es para nada correlado.
+
+El siguiente elemento que voy a analizar es de la tabla de estadísticas:
+
+```{r calculo_correlacion_stats}
+
+data.stats.clean <- mutate_all(data.stats.clean, function(x) as.numeric(as.character(x)))
+res.stats <- cor(data.stats.clean)
+options(width = 100)
+res.stats.round <- round(res.stats, 2)
+
+```
+
+El primer gráfico que muestro es entre la duración de las partidas y la temporada en la que se está jugando:
+
+```{r grafico_correlaciones_variables_stats}
+
+corrplot(res.stats.round, method="circle",type = "upper", tl.cex = 0.6)
+
+```
+
+Se puede apreciar una correlación grande entre algunas variables, como:
+
++ Daño Verdadero y Daño Total
++ Kills y Racha de Bajas más larga, así como con número de rachas de bajas
++ El oro ganado, oro gastado y el nivel del campeón al final de la partida
++ Daño mágico hecho en general y daño mágico hecho específicamente a campeones
++ Minions neutrales matados (de la jungla) con el número de kills en propia jungla, así como en jungla ajena
+
+
+Finalmente, analizo las estadísticas de equipo:
+
+El siguiente elemento que voy a analizar es de la tabla de estadísticas:
+
+```{r calculo_correlacion_stats_team}
+
+res.teamstats <- cor(data.teamstats.clean)
+options(width = 100)
+res.teamstats.round <- round(res.teamstats, 2)
+
+```
+
+El primer gráfico que muestro es entre la duración de las partidas y la temporada en la que se está jugando:
+
+```{r grafico_correlaciones_variables_stats_team}
+
+corrplot(res.teamstats.round, method="circle",type = "upper", tl.cex = 0.6)
+
+```
+
+Podemos observar algunas relaciones, como:
+
++ El número de torres destruidas tiene mucho que ver con el número de inhibidores destruidos
++ El número de dragones matados tiene cierta relación con el número de torres destruidas
+
+Me gustaría también hacer correlación con la variable que posteriormente utilizaremos como etiqueta en las predicciones, y que se antoja el objetivo de la partida: Ganar.
+
+Para ello, voy a hacer un dataframe especial donde data.stats tenga añadido el elemento victoria:
+
+```{r creacion_data_stats+win}
+
+data.stats.clean <- cbind(data.stats$win, data.stats.clean)
+
+```
+
+Y ahora es cuando vuelvo a hacer el corrplot:
+
+```{r calculo_correlacion_stats+win}
+
+data.stats.clean <- mutate_all(data.stats.clean, function(x) as.numeric(as.character(x)))
+res.stats <- cor(data.stats.clean)
+options(width = 100)
+res.stats.round <- round(res.stats, 2)
+
+```
+
+El primer gráfico que muestro es entre la duración de las partidas y la temporada en la que se está jugando:
+
+```{r grafico_correlaciones_variables_stats+win}
+
+corrplot(res.stats.round, method="circle",type = "upper", tl.cex = 0.6)
+
+```
+
+Impresionantemente, de todas las estadísticas que tenemos en la tabla de stats, ninguna de ellas tiene relación directa con la victoria. La única que tiene relación inversa es el número de muertes, lo cual es lógico.
+
+
+## Preguntas
+
+Ahora que tenemos las correlaciones vistas, podemos pasar a hacernos preguntas.
+
+### ¿Campeón más baneado por temporada?
+
+Uno de los elementos que más se tienen en cuenta a la hora de analizar los e-sports es el campeón más baneado por temporada. Esto es porque desde Riot Games hacen cambios a las habilidades y fuerza de los personajes, de tal manera que algunas veces algunos campeones son demasiado fuertes y se pueden bloquear al inicio de la partida. 
+Vamos a ver cuáles han sido:
+
+Para ello, lo primero que tengo que hacer es unir las tablas de bans y partidas
+
+```{r join_bans_matches}
+
+data.bans.matches <- inner_join(data.teambans, data.matches, by=c("matchid" = "id"))
+
+# Para poder ver los campeones por nombre, ahora uniré esta tabla con data.champs
+
+data.bans.matches <- inner_join(data.bans.matches, data.champs, by = c("championid" = "id"))
+
+# Ahora borro la columna con el número de campepón porque no me hace más falta...
+
+data.bans.matches <- data.bans.matches[, -3]
+
+# Finalmente, voy a borrar también las columnas de creación, versión, queueid y platformid porque tampoco me van a hacer falta nunca
+
+data.bans.matches <- data.bans.matches[, c(-5, -9, -10)]
+head(data.bans.matches)
+
+```
+
+Ahora que tenemos el dataset preparado, pasamos a ordenarlo por season, separar las seasons y contar el número de veces que se han baneado a cada uno de ellos:
+
+```{r split_dataframe_bans_matches}
+
+split <- split( data.bans.matches , f = data.bans.matches$seasonid )
+
+# Como solo tenemos 8 seasons, lo hacemos del 1 al 6
+
+datasplit.season3 <- split[[1]]
+datasplit.season4 <- split[[2]]
+datasplit.season5 <- split[[3]]
+datasplit.season6 <- split[[4]]
+datasplit.season7 <- split[[5]]
+datasplit.season8 <- split[[6]]
+
+```
+
+Calculamos el número de veces que se han baneado a los campeones por season:
+
+SEASON 3
+
+```{r bans_season3}
+
+dataNombres.season3 <- ddply(datasplit.season3,.(name),nrow)
+dataNombres.season3 <- dataNombres.season3[order(dataNombres.season3$V1, decreasing = TRUE), ]
+head(dataNombres.season3)
+
+```
+Obtenemos el wordcloud...
+
+```{r wordcloud_bans_season3}
+
+set.seed(9999) # Para el mantenimiento del mismo patrón
+
+wordcloud(words = dataNombres.season3$name, freq = dataNombres.season3$V1, min.freq = 1, random.order=FALSE, rot.per=0.5, colors=c("Orange","Purple","Pink", "Red", "Yellow", "Green", "Blue", "Black"))
+
+# Ratio
+
+print("El porcentaje de baneo a Yasuo en la season 3 fue de: ")
+ratio.season3 <- dataNombres.season3$V1[1]/sum(dataNombres.season3$V1)
+print(ratio.season3)
+
+```
+
+
+SEASON 4
+
+```{r bans_season4}
+
+dataNombres.season4 <- ddply(datasplit.season4,.(name),nrow)
+dataNombres.season4 <- dataNombres.season4[order(dataNombres.season4$V1, decreasing = TRUE), ]
+head(dataNombres.season4)
+
+```
+Obtenemos el wordcloud de la season 4...
+
+```{r wordcloud_bans_season4}
+
+set.seed(9999)
+
+wordcloud(words = dataNombres.season4$name, freq = dataNombres.season4$V1, min.freq = 1, random.order=FALSE, rot.per=0.5, colors=c("Orange","Purple","Pink", "Red", "Yellow", "Green", "Blue", "Black"))
+
+# Ratio
+
+print("El porcentaje de baneo a Akali en la season 4 fue de: ")
+ratio.season4 <- dataNombres.season4$V1[1]/sum(dataNombres.season4$V1)
+print(ratio.season4)
+
+```
+
+
+SEASON 5
+
+```{r bans_season5}
+
+dataNombres.season5 <- ddply(datasplit.season5,.(name),nrow)
+dataNombres.season5 <- dataNombres.season5[order(dataNombres.season5$V1, decreasing = TRUE), ]
+head(dataNombres.season5)
+
+```
+Wordcloud de la season 5...
+
+```{r wordcloud_bans_season5}
+
+set.seed(9999)
+
+wordcloud(words = dataNombres.season5$name, freq = dataNombres.season5$V1, min.freq = 350, random.order=FALSE, rot.per=0.5, colors=c("Orange","Purple","Pink", "Red", "Yellow", "Green", "Blue", "Black")) # He subido el threshold porque si no no cabían todos los importantes en la página
+
+# Ratio
+
+print("El porcentaje de baneo a Darius en la season 5 fue de: ")
+ratio.season5 <- dataNombres.season5$V1[1]/sum(dataNombres.season5$V1)
+print(ratio.season5)
+
+```
+
+
+SEASON 6
+
+```{r bans_season6}
+
+dataNombres.season6 <- ddply(datasplit.season6,.(name),nrow)
+dataNombres.season6 <- dataNombres.season6[order(dataNombres.season6$V1, decreasing = TRUE), ]
+head(dataNombres.season6)
+
+```
+Wordcloud de la season 6...
+
+```{r wordcloud_bans_season6}
+
+set.seed(9999)
+
+wordcloud(words = dataNombres.season6$name, freq = dataNombres.season6$V1, min.freq = 1, random.order=FALSE, rot.per=0.5, colors=c("Orange","Purple","Pink", "Red", "Yellow", "Green", "Blue", "Black"))
+
+# Ratio
+
+print("El porcentaje de baneo a Dr.Mundo en la season 6 fue de: ")
+ratio.season6 <- dataNombres.season6$V1[1]/sum(dataNombres.season6$V1)
+print(ratio.season6)
+
+```
+
+
+SEASON 7
+
+```{r bans_season7}
+
+dataNombres.season7 <- ddply(datasplit.season7,.(name),nrow)
+dataNombres.season7 <- dataNombres.season7[order(dataNombres.season7$V1, decreasing = TRUE), ]
+head(dataNombres.season7)
+
+```
+
+Wordcloud de la season 7...
+
+```{r wordcloud_bans_season7}
+
+set.seed(9999)
+
+wordcloud(words = dataNombres.season7$name, freq = dataNombres.season7$V1, min.freq = 1, random.order=FALSE, rot.per=0.5, colors=c("Orange","Purple","Pink", "Red", "Yellow", "Green", "Blue", "Black"))
+
+# Ratio
+
+print("El porcentaje de baneo a Zed en la season 7 fue de: ")
+ratio.season7 <- dataNombres.season7$V1[1]/sum(dataNombres.season7$V1)
+print(ratio.season7)
+
+```
+
+
+SEASON 8
+
+```{r bans_season8}
+
+dataNombres.season8 <- ddply(datasplit.season8,.(name),nrow)
+dataNombres.season8 <- dataNombres.season8[order(dataNombres.season8$V1, decreasing = TRUE), ]
+head(dataNombres.season3)
+
+```
+Wordcloud de la season 8...
+
+```{r wordcloud_bans_season8}
+
+set.seed(9999) # Para el mantenimiento del mismo patrón
+
+wordcloud(words = dataNombres.season8$name, freq = dataNombres.season8$V1, min.freq = 1, random.order=FALSE, rot.per=0.5, colors=c("Orange","Purple","Pink", "Red", "Yellow", "Green", "Blue", "Black"))
+
+# Ratio
+
+print("El porcentaje de baneo a Yasuo en la season 8 fue de: ")
+ratio.season8 <- dataNombres.season8$V1[1]/sum(dataNombres.season8$V1)
+print(ratio.season8)
+
+```
+
+Pregunta respondida.
+
+Pasemos a la siguiente pregunta:
+
+### ¿Son importantes los wards para ganar?
+
+Mi posición principal en el juego es la de support. En esta posición, sirvo de apoyo al equipo, ayudando a conseguir bajas, sacrificándome cuando sea necesario... y proporcionando visión al equipo.
+
+Por lo tanto, esta función que cumplo de proporcionar visión... ¿cómo de necesaria es?
+
+Lo primero que voy a hacer es preparar el dataset. Como necesito la estadística del número de wards plantados y de la victoria, y todo esto lo tengo en la misma tabla, no necesito juntar tablas, de tal manera que procedo:
+
+```{r plot_wards_win}
+
+#Vemos la correlación entre las variables...
+
+cor(data.stats$wardsplaced, data.stats$win)
+
+
+
+```
 
