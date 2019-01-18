@@ -1,4 +1,5 @@
 ---
+
 title: "Haciendo Big Data a League of Legends"
 author: "Jorge de Andrés"
 date: "16 de enero de 2019"
@@ -6,11 +7,21 @@ output:
   pdf_document: default
   word_document: default
   html_document: default
+  
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
+Limpiamos environment:
+
+```{r limpiar_environment}
+
+rm(list=ls())
+
+```
+
 
 Importamos los paquetes necesarios:
 
@@ -114,7 +125,6 @@ data.games.corr <- data.games.corr[, -10:-24]
 data.games.corr <- data.games.corr[, -15:-34]
 #head(data.games.corr)
 data.games.corr <- data.games.corr[, -20:-24]
-head(data.games.corr)
 
 ```
 
@@ -158,6 +168,74 @@ Respecto a dragones, podemos ver:
 Finalmente, respecto a el momento de la creación de la partida, podemos observar:
 
 + No tiene ninguna relación el paso del tiempo cno el aumento o disminución de ninguna de las variables.
+
+
+## PCA
+
+Vamos a hacer ahora un análisis de las componentes principales:
+Para los cálculos, uso la matriz con el centrado y escalado ya hechos
+
+```{r PCA_Calculations}
+
+resultado.pca <- PCA(data.games.corr, graph = FALSE)
+
+#Con la siguiente línea podemos ver que podemos hacer con esto calculado
+print(resultado.pca)
+
+```
+Nos interesa ver los eigenvalues, que son los que presentarán la cantidad de varianza que aportan las variables:
+
+```{r table_eigenvalues_PCA}
+
+eigenvalues.PCA <- resultado.pca$eig
+eigenvalues.PCA
+
+```
+
+Como podemos ver, tenemos 19 componentes principales (una por cada dimensión), y vemos que solo con 10 variables ya tenemos un 90% de explicación.
+Además, de cara a la representación en dos dimensiones, podemos ver que con solo las dos variables con más varianza tenemos una explicación del 47,7%.
+
+Ahora, para completar este apartado de PCA, lo que voy a hacer es sacar la gráfica de la varianza acumulada con los valores anteriores:
+
+```{r PCA_eigenvalues_graph}
+
+plotPCA <- fviz_screeplot(resultado.pca, ncp=19, main="Barplot de explicación de varianza", ylab="Porcentaje de explicación", xlab="Dimensión")
+plot(plotPCA)
+
+```
+
+Ahora voy a sacar un "Factor Map" de las variables. Esto lo puedo hacer gracias a las coordenadas que me da una de las variables tras hacer el PCA.
+Así, voy primero a ver la tabla y luego voy a sacar el mapa:
+
+```{r PCA_Coordinates}
+
+head(resultado.pca$var$coord)
+
+```
+
+Como se puede ver, me está poniendo mis 24 variables en 5 dimensiones, con unas coordenadas concretas. Ahora, lo que voy a hacer, es representarlo.
+Con esta representación podré sacar algunas conclusiones:
+
+```{r PCA_Coordinates_Graph}
+
+fviz_pca_var(resultado.pca)
+
+```
+
+Es interesante ver como no hay nada que vaya en la misma dirección que la victoria. T1 tiene que ser interpretado de una manera en espejo respecto al eje de las Y, y vemos como muchísimas variables como el heraldo, first blood, número de dragones... todas tienen más o menos la misma importancia de cara a conseguir la victoria.
+
+Vemos como la duración del juego forma un ángulo de 90 grados con la victoria, lo cual significa que no tiene nada que ver.
+
+Ahora vamos a ver en un mapa, sobre las dos componentes principales, todas las partidas:
+
+```{r plot_coordendas_individuos}
+
+fviz_pca_ind(resultado.pca)
+
+```
+
+Como se puede apreciar en este gráfico también, prácticamente todas las partidas forman un gran cluster (representado sobre las dos componentes con más variabilidad), y esto nos demuestra que no hay demasiada varianza entre unas partidas y otras. En otras palabras, no podemos distinguir fácilmente varios tipos de partidas, todas son parecidas y no hay diferencias suficientes para clasificar en grupos, más que en uno grande.
+
 
 
 
@@ -246,7 +324,8 @@ Ahora que tenemos todos los bans contados, es hora de hacer un wordcloud para po
 
 set.seed(9999) # Para el mantenimiento del mismo patrón
 
-wordcloud(words = df.bans$name, freq = df.bans$total, min.freq = 1, random.order=FALSE, rot.per=0.5, colors=c("Orange","Purple","Pink", "Red", "Yellow", "Green", "Blue", "Black"))
+wordcloud(words = df.bans$name, freq = df.bans$total, min.freq = 1, random.order=FALSE, 
+          rot.per=0.5, colors=c("Orange","Purple","Pink", "Red", "Yellow", "Green", "Blue", "Black"))
 
 # Ratio del más baneado
 
@@ -285,7 +364,7 @@ res.dragons.win.round <- round(res.dragons.win, 2)
 
 ```{r grafico_correlaciones_dragons_win}
 
-corrplot(res.dragons.win.round, method="circle", type = "upper", tl.srt = 0.7)
+corrplot(res.dragons.win.round, method="square", type = "upper", tl.srt = 0.7)
 
 ```
 
@@ -401,7 +480,8 @@ Ahora que tenemos todos los picks contados, es hora de hacer un wordcloud para p
 
 set.seed(9998) # Para el mantenimiento del mismo patrón
 
-wordcloud(words = df.picks$name, freq = df.picks$total, min.freq = 3000, random.order=FALSE, rot.per=0.5, colors=c("Orange","Purple","Pink", "Red", "Yellow", "Green", "Blue", "Black"))
+wordcloud(words = df.picks$name, freq = df.picks$total, min.freq = 3000, random.order=FALSE,
+          rot.per=0.5, colors=c("Orange","Purple","Pink", "Red", "Yellow", "Green", "Blue", "Black"))
 
 # Ratio del más baneado
 
@@ -453,7 +533,11 @@ Procedemos contando el número de ocurrencias que hay de cada campeón, y con es
 
 # Ahora voy a llevar todas las columnas a una:
 
-dataframe.winners <- data.frame(all = c(dataframe.winners[,"Pick1"], dataframe.winners[,"Pick2"], dataframe.winners[,"Pick3"], dataframe.winners[,"Pick4"], dataframe.winners[,"Pick5"]))
+dataframe.winners <- data.frame(all = c(dataframe.winners[,"Pick1"],
+                                        dataframe.winners[,"Pick2"],
+                                        dataframe.winners[,"Pick3"], 
+                                        dataframe.winners[,"Pick4"], 
+                                        dataframe.winners[,"Pick5"]))
 
 head(dataframe.winners)
 
@@ -551,79 +635,114 @@ Los primeros objetivos son cruciales en la partida, ya que algunos dan extra de 
 Para ello, contaré para cada columna de primeros objetivos qué equipo ha conseguido ser el mejor, y por qué porcentaje, y entonces determinaré si hay alguna ventaja en alguno de los objetivos.
 
 
+```{r}
+# Los datos de esto los tenemos en data.games. Para aclarar, vamos a hacer un dataset específico con los datos de los objetivos...
 
+data.first.objectives <- data.games[, 6:11]
 
+# Es importante remarcar que aquí hay 3 valores: 0 si nadie lo ha conseguido, 1 si lo ha conseguido el equipo azul y 2 si lo ha conseguido el equipo rojo.
 
+head(data.first.objectives)
 
+# Ahora mi objetivo es contar de cada una de las líneas lo que hay, y de aquí sacar conclusiones:
 
+firstblood.qty <- as.data.frame(table(data.first.objectives[, 1]))
+firsttower.qty <- as.data.frame(table(data.first.objectives[, 2]))
+firstinhib.qty <- as.data.frame(table(data.first.objectives[, 3]))
+firstbaron.qty <- as.data.frame(table(data.first.objectives[, 4]))
+firstdragon.qty <- as.data.frame(table(data.first.objectives[, 5]))
+firstherald.qty <- as.data.frame(table(data.first.objectives[, 6]))
 
+# Ahora lo vemos bien en barplots...
 
+array.firstblood <- c(firstblood.qty[1, 2],firstblood.qty[2, 2], firstblood.qty[3, 2])
+barplot(array.firstblood, main="Partidas en las que los equipos hicieron Primera sangre", xlab="Equipo / Ninguno", ylab = "Número de partidas",  
+        ylim = c(0,30000), col = c("White", "Blue", "Red"), legend.text=firstblood.qty$Var1)
 
+array.firsttower <- c(firsttower.qty[1, 2],firsttower.qty[2, 2], firsttower.qty[3, 2])
+barplot(array.firsttower, main="Partidas en las que los equipos hicieron Primera torre", xlab="Equipo / Ninguno", ylab = "Número de partidas",
+        ylim = c(0,30000), col = c("White", "Blue", "Red"), legend.text=firsttower.qty$Var1)
 
+array.firstinhib <- c(firstinhib.qty[1, 2],firstinhib.qty[2, 2], firstinhib.qty[3, 2])
+barplot(array.firstinhib, main="Partidas en las que los equipos hicieron primer inhibidor", xlab="Equipo / Ninguno", ylab = "Número de partidas",
+        ylim = c(0,30000), col = c("White", "Blue", "Red"), legend.text=firstinhib.qty$Var1)
 
+array.firstbaron <- c(firstbaron.qty[1, 2],firstbaron.qty[2, 2], firstbaron.qty[3, 2])
+barplot(array.firstbaron, main="Partidas en las que los equipos hicieron primer baron", xlab="Equipo / Ninguno", ylab = "Número de partidas", 
+        ylim = c(0,30000), col = c("White", "Blue", "Red"), legend.text=firstbaron.qty$Var1)
 
+array.firstdragon <- c(firstdragon.qty[1, 2],firstdragon.qty[2, 2], firstdragon.qty[3, 2])
+barplot(array.firstdragon, main="Partidas en las que los equipos hicieron primer dragón", xlab="Equipo / Ninguno", ylab = "Número de partidas",
+        ylim = c(0,30000), col = c("White", "Blue", "Red"), legend.text=firstdragon.qty$Var1)
 
-
-## PCA
-
-Vamos a hacer ahora un análisis de las componentes principales:
-Para los cálculos, uso la matriz con el centrado y escalado ya hechos
-
-```{r PCA_Calculations}
-
-resultado.pca <- PCA(data.games.corr, graph = FALSE)
-
-#Con la siguiente línea podemos ver que podemos hacer con esto calculado
-print(resultado.pca)
-
-```
-Nos interesa ver los eigenvalues, que son los que presentarán la cantidad de varianza que aportan las variables:
-
-```{r table_eigenvalues_PCA}
-
-eigenvalues.PCA <- resultado.pca$eig
-eigenvalues.PCA
-
-```
-
-Como podemos ver, tenemos 19 componentes principales (una por cada dimensión), y vemos que solo con 10 variables ya tenemos un 90% de explicación.
-Además, de cara a la representación en dos dimensiones, podemos ver que con solo las dos variables con más varianza tenemos una explicación del 47,7%.
-
-Ahora, para completar este apartado de PCA, lo que voy a hacer es sacar la gráfica de la varianza acumulada con los valores anteriores:
-
-```{r PCA_eigenvalues_graph}
-
-plotPCA <- fviz_screeplot(resultado.pca, ncp=19, main="Barplot de explicación de varianza", ylab="Porcentaje de explicación", xlab="Dimensión")
-plot(plotPCA)
-
-```
-
-Ahora voy a sacar un "Factor Map" de las variables. Esto lo puedo hacer gracias a las coordenadas que me da una de las variables tras hacer el PCA.
-Así, voy primero a ver la tabla y luego voy a sacar el mapa:
-
-```{r PCA_Coordinates}
-
-head(resultado.pca$var$coord)
-
-```
-Como se puede ver, me está poniendo mis 24 variables en 5 dimensiones, con unas coordenadas concretas. Ahora, lo que voy a hacer, es representarlo.
-Con esta representación podré sacar algunas conclusiones:
-
-```{r PCA_Coordinates_Graph}
-
-fviz_pca_var(resultado.pca)
+array.firstherald <- c(firstherald.qty[1, 2],firstherald.qty[2, 2], firstherald.qty[3, 2])
+barplot(array.firstherald, main="Partidas en las que los equipos hicieron el heraldo", xlab="Equipo / Ninguno", ylab = "Número de partidas",
+        ylim = c(0,30000), col = c("White", "Blue", "Red"), legend.text=firstherald.qty$Var1)
 
 ```
 
-Es interesante ver como no hay nada que vaya en la misma dirección que la victoria. T1 tiene que ser interpretado de una manera en espejo respecto al eje de las Y, y vemos como muchísimas variables como el heraldo, first blood, número de dragones... todas tienen más o menos la misma importancia de cara a conseguir la victoria.
+Como podemos ver en los gráficos, la primera sangre y primera torre suelen caer un poco más del lado del equipo azul, siendo estos elementos que se dan al principio de la partida.
 
-Vemos como la duración del juego forma un ángulo de 90 grados con la victoria, lo cual significa que no tiene nada que ver.
+Respecto al primer dragón y el heraldo, que se dan en el medio de la partida, se igualan las tornas.
 
-```{r plot_coordendas_individuos}
+Sin embargo, con los objetivos de final de partida, como es el primer barón, es el equipo rojo quien lo suele conseguir. En cambio, el equipo azul suele conseguir el primer inhibidor.
 
-fviz_pca_ind(resultado.pca)
 
-```
+## Reglas
 
-Como se puede apreciar en este gráfico también, prácticamente todas las partidas forman un gran cluster (representado sobre las dos componentes con más variabilidad), y esto nos demuestra que no hay demasiada varianza entre unas partidas y otras. En otras palabras, no podemos distinguir fácilmente varios tipos de partidas, todas son parecidas y no hay diferencias suficientes para clasificar en grupos.
+Podemos obtener una serie de reglas para confirmar las afirmaciones que he hecho sobre los datos.
+
+
+
+
+
+## Machine Learning
+
+Ahora usaremos algoritmos de Machine Learning para ver si somos capaces de predecir quién va a ganar en base a una serie de características.
+
+Para hacer esto, vamos a crear un dataset a partir de data.games solo para lo que va a ser el Machine Learning. En él, dejaré las variables que creo necesarias para la predicción de una partida y así usaremos este dataset, tras un centrado y escalado.
+
+Creación del Dataset:
+
+
+
+
+Centrado y Escalado:
+
+
+
+
+
+### Algoritmos Supervisados
+
+#### Perceptrón Multicapa
+
+
+
+
+
+#### KNN
+
+
+
+
+
+#### Random Forest
+
+
+
+
+#### SVM Kernel Lineal
+
+
+
+
+#### SVM Kernel Radial
+
+
+
+### Algoritmos no supervisados
+
+
+#### K-Means
 
