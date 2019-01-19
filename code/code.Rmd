@@ -25,7 +25,7 @@ rm(list=ls())
 
 Importamos los paquetes necesarios:
 
-```{r paquetes}
+```{r paquetes, echo=T, results='hide'}
 
 #install.packages("dplyr")
 #install.packages("pryr")
@@ -39,6 +39,11 @@ Importamos los paquetes necesarios:
 #install.packages("FactoMineR")
 #devtools::install_github("kassambara/factoextra")
 #install.packages("factoextra")
+#install.packages("arules")
+#install.packages("arulesViz")
+#install.packages("fastDummies")
+#install.packages("caret")
+#install.packages("nnet")
 
 library("corrplot")
 library("dplyr")
@@ -51,6 +56,12 @@ library("hexbin")
 library("RColorBrewer")
 library("FactoMineR")
 library("factoextra")
+require("arulesViz")
+require("arules")
+library("Matrix")
+library("fastDummies")
+library("caret")
+library("nnet")
 
 ```
 
@@ -75,6 +86,7 @@ lista.championInfo2 <- fromJSON(file="../data/champion_info_2.json")
 lista.summonerSpell <- fromJSON(file="../data/summoner_spell_info.json")
 
 ```
+
 
 
 Tamaño de mis datasets...
@@ -668,7 +680,7 @@ barplot(array.firstinhib, main="Partidas en las que los equipos hicieron primer 
         ylim = c(0,30000), col = c("White", "Blue", "Red"), legend.text=firstinhib.qty$Var1)
 
 array.firstbaron <- c(firstbaron.qty[1, 2],firstbaron.qty[2, 2], firstbaron.qty[3, 2])
-barplot(array.firstbaron, main="Partidas en las que los equipos hicieron primer baron", xlab="Equipo / Ninguno", ylab = "Número de partidas", 
+barplot(array.firstbaron, main="Partidas en las que los equipos hicieron primer barón", xlab="Equipo / Ninguno", ylab = "Número de partidas", 
         ylim = c(0,30000), col = c("White", "Blue", "Red"), legend.text=firstbaron.qty$Var1)
 
 array.firstdragon <- c(firstdragon.qty[1, 2],firstdragon.qty[2, 2], firstdragon.qty[3, 2])
@@ -681,11 +693,29 @@ barplot(array.firstherald, main="Partidas en las que los equipos hicieron el her
 
 ```
 
+Si ponemos todos estos en orden cronológico a cuando suelen pasar, obtenemos lo siguiente:
+
+```{r cronología_partida_first_objective}
+
+dataframe.firstObjective <- cbind(array.firstblood, array.firsttower, array.firstdragon, array.firstherald, array.firstinhib, array.firstbaron)
+colnames(dataframe.firstObjective) <- c('FirstBlood', 'FirstTower', 'FirstDragon', 'FirstHerald', 'FirstInhib', 'FirstBaron')
+
+colours = c("white","blue","red")
+
+barplot(dataframe.firstObjective, main='Cantidad de primer objetivo de cada tipo conseguido por los equipos',ylab='Veces', xlab='Evento',beside = TRUE, 
+        col=colours, ylim=c(0,max(dataframe.firstObjective)*1.3))
+# to add a box around the plot
+box()
+
+```
+
+
 Como podemos ver en los gráficos, la primera sangre y primera torre suelen caer un poco más del lado del equipo azul, siendo estos elementos que se dan al principio de la partida.
 
 Respecto al primer dragón y el heraldo, que se dan en el medio de la partida, se igualan las tornas.
 
-Sin embargo, con los objetivos de final de partida, como es el primer barón, es el equipo rojo quien lo suele conseguir. En cambio, el equipo azul suele conseguir el primer inhibidor.
+Sin embargo, con los objetivos de final de partida, como es el primer barón, es el equipo rojo quien lo suele conseguir. En cambio, el equipo azul suele conseguir con un poco más de frecuencia el primer inhibidor.
+
 
 
 ## Reglas
@@ -693,6 +723,12 @@ Sin embargo, con los objetivos de final de partida, como es el primer barón, es
 Podemos obtener una serie de reglas para confirmar las afirmaciones que he hecho sobre los datos.
 
 
+```{r obtener_reglas}
+
+#data.games.factors <- lapply(data.games, function(x){as.factor(x)})
+#reglas <- apriori(data.games.factors, parameter = list(support = 0.01, confidence = 0.5))
+
+```
 
 
 
@@ -704,45 +740,196 @@ Para hacer esto, vamos a crear un dataset a partir de data.games solo para lo qu
 
 Creación del Dataset:
 
+```{r dataset_ml_creation}
+
+data.games.names <- inner_join(data.games, data.champs, by = c("t1_champ1id" = "id"))
+data.games.names <- inner_join(data.games.names, data.champs, by = c("t1_champ2id" = "id"))
+data.games.names <- inner_join(data.games.names, data.champs, by = c("t1_champ3id" = "id"))
+data.games.names <- inner_join(data.games.names, data.champs, by = c("t1_champ4id" = "id"))
+data.games.names <- inner_join(data.games.names, data.champs, by = c("t1_champ5id" = "id"))
+data.games.names <- inner_join(data.games.names, data.champs, by = c("t2_champ1id" = "id"))
+data.games.names <- inner_join(data.games.names, data.champs, by = c("t2_champ2id" = "id"))
+data.games.names <- inner_join(data.games.names, data.champs, by = c("t2_champ3id" = "id"))
+data.games.names <- inner_join(data.games.names, data.champs, by = c("t2_champ4id" = "id"))
+data.games.names <- inner_join(data.games.names, data.champs, by = c("t2_champ5id" = "id"))
+
+champs.names <- data.games.names[,62:71]
+colnames(champs.names) <- c("P1T1", "P2T1", "P3T1", "P4T1", "P5T1", "P1T2", "P2T2", "P3T2", "P4T2", "P5T2")
 
 
+# Ahora paso todos los campeones a variables binarias. Esto hace que para todas las predicciones no tenga que usar distancias ni categorías entre ellos, lo que me permite que sean más justas.
 
-Centrado y Escalado:
+vectors_champs <- dummy_cols(champs.names)
+vectors_champs <- vectors_champs[, -1:-10]
+
+# Ahora lo único que tengo que hacer es crear el dataset final para el machine learning, quitando aquellas variables que no deseo que estén (entre ellas el código de los campeones) y añadiendo esta codificación binaria que acabo de crear.
+
+data.ml <- data.games[, c(-1, -2, -4, -13, -14, -16, -17, -19, -20, -22, -23, -25, -26, -38, -39, -41, -42, -44, -45, -47, -48)]
+data.ml <- data.ml[, -9:-13]
+data.ml <- data.ml[, -19:-25]
+
+# Ahora hago lo mismo de antes para los nombres pero con los bans. Antes que nada, tengo que añadir None como la elección de ningún campeón para banear en el df de campeones.
+
+df.tonto <- data.frame("None", as.integer(1000))
+names(df.tonto) <- c("name", "id")
+data.champs <- rbind(data.champs, df.tonto)
+
+data.games[data.games=="-1"]<-1000
+
+data.games.bans <- inner_join(data.games, data.champs, by = c("t1_ban1" = "id"))
+data.games.bans <- inner_join(data.games.bans, data.champs, by = c("t1_ban2" = "id"))
+data.games.bans <- inner_join(data.games.bans, data.champs, by = c("t1_ban3" = "id"))
+data.games.bans <- inner_join(data.games.bans, data.champs, by = c("t1_ban4" = "id"))
+data.games.bans <- inner_join(data.games.bans, data.champs, by = c("t1_ban5" = "id"))
+data.games.bans <- inner_join(data.games.bans, data.champs, by = c("t2_ban1" = "id"))
+data.games.bans <- inner_join(data.games.bans, data.champs, by = c("t2_ban2" = "id"))
+data.games.bans <- inner_join(data.games.bans, data.champs, by = c("t2_ban3" = "id"))
+data.games.bans <- inner_join(data.games.bans, data.champs, by = c("t2_ban4" = "id"))
+data.games.bans <- inner_join(data.games.bans, data.champs, by = c("t2_ban5" = "id"))
+
+champs.bans.names <- data.games.bans[,62:71]
+colnames(champs.bans.names) <- c("B1T1", "B2T1", "B3T1", "B4T1", "B5T1", "B1T2", "B2T2", "B3T2", "B4T2", "B5T2")
 
 
+vectors_champs.bans <- dummy_cols(champs.bans.names)
+vectors_champs.bans <- vectors_champs.bans[, -1:-10]
 
+# Finalmente, hago las últimas transformaciones y adiciones a data.ml para obtener el resultado final
+
+data.ml <- data.ml[, -14:-18]
+data.ml <- data.ml[, -19:-23]
+
+data.ml <- cbind(data.ml, vectors_champs, vectors_champs.bans)
+
+# Ahora tenemos todo junto. Limpio los df que han quedado como auxiliares y procedemos al centrado y escalado:
+
+remove(vectors_champs.bans)
+remove(vectors_champs)
+remove(df.tonto)
+
+# Finalmente,hago una segunda matriz sin el resultado, que será la que centre y escale:
+
+data.ml.centscal <- data.ml[, -2]
+
+```
+
+
+Ahora hacemos un centrado y escalado de los datos para evitar distorsionar la predicción:
+
+```{r centrado_escalado}
+
+preObjeto <- preProcess(data.ml.centscal, method=c("center", "scale"))  # Quiero hacer un centrado y escalado
+data.ml.centscal <- predict(preObjeto, data.ml.centscal)
+
+```
+
+Estos archivos son grandes, veamos su tamaño:
+
+```{r size_tras_centrado_escalado}
+
+object_size(data.ml)
+object_size(data.ml.centscal)
+
+```
 
 
 ### Algoritmos Supervisados
 
+Pasamos ahora a una revisión / uso de algoritmos supervisados:
+
 #### Perceptrón Multicapa
 
+El algoritmo supervisado por el que siempre se debe de empezar es el perceptrón multicapa. Con este algoritmo de clasificación voy a intentar predecir el resultado de la partida.
+Este algoritmo se basa en una red neuronal con una capa intermedia (en este caso), mediante la cual podemos procesar datos más complejos que con un perceptrón monocapa.
+Con este algoritmo comprobaremos si las partidas ganadas por unos y por otros son linealmente separables.
+
+Ahora vamos a importar la librería nnet, que nos sirve para hacer perceptrones 
+
+Ahora lo que hago es coger un conjunto muy grande de los datos para hacer el entrenamiento
+
+```{r creación_conjunto_entrenamiento}
+
+conjuntoEntrenamiento <- sample(1:nrow(data.ml.centscal), 45000)
+
+```
+
+
+
+###############################################################
+ 1 NEURONA ####################################################
+###############################################################
+
+
+Lo que voy a hacer ahora es entrenar la red neuronal con diferente cantidad de neuronas,y voy a ir comparando el resultado...
+
+SIN SOFTMAX #############################
+
+```{r entrenamiento_1_neurona}
+
+partidas.1neu <- nnet( data.ml.centscal[conjuntoEntrenamiento, ], class.ind( data.ml[conjuntoEntrenamiento, 2] ) , size=1, MaxNWts=10000 )
+
+#Una vez que lo tengo entrenado, lo que voy a hacer es calcular el error tanto en el entrenamiento como en el test de cada uno
+
+partidas.prediccion.1neu <- predict( partidas.1neu, data.ml.centscal[conjuntoEntrenamiento, ], type="raw" )
+head(partidas.prediccion.1neu) # Vemos las probabilidades de pertenencia de cada valor
+
+# Ahora que los tengo todos entrenados, Determinamos cual es la máxima, es decir, la clase a la que hay que asignar los objetos
+
+partidas.prediccion.1neu.class <- apply( partidas.prediccion.1neu, MARGIN=1, FUN='which.is.max')
+
+#Calculo el acierto
+
+sum( diag( table( partidas.prediccion.1neu.class, data.ml[conjuntoEntrenamiento, 2] ) ) )/length(conjuntoEntrenamiento) # Índice de acierto
+
+```
+
+##############
+############## TEST
+##############
+
+```{r test_1_neurona}
+
+partidas.prediccion.test.1neu <- predict( partidas.1neu, data.ml.centscal[-conjuntoEntrenamiento, ], type="raw" )
+
+partidas.prediccion.test.1neu.class <- apply( partidas.prediccion.test.1neu, MARGIN=1, FUN='which.is.max')
+
+table( partidas.prediccion.test.1neu.class , data.ml[-conjuntoEntrenamiento, 2] )
+sum( diag( table( partidas.prediccion.test.1neu.class, data.ml[-conjuntoEntrenamiento, 2] ) ) )/(nrow(data.ml.centscal) - length(conjuntoEntrenamiento))
+
+```
 
 
 
 
 #### KNN
 
+K - Nearest Neighbours es otro algoritmo de clasificación muy utilizado. Se basa en la posición del nodo que se está analizando con los K nodos más cercanos mediante distancia euclídea. De este modo, calcula la similitud e indentifica a un nodo como de un grupo o de otro.
 
 
 
 
 #### Random Forest
 
-
+Random Forest es otro algoritmo supervisado que se basa en la creación de árboles de decisión, en los cuales se hacen preguntas y según la contestación obtenemos un resultado u otro. Finalmente, todos los bosques que se forman llegan a un acuerdo y se pone la decisión final.
 
 
 #### SVM Kernel Lineal
 
+SVM es una técnica supervisada que es muy robusta frente a la dimensionalidad. En este caso, nuestro problema no tiene una dimensión excesiva, pero con los valores dummies (binarios) que hemos añadido, la dimensionalidad ahora es extrema. Vamos a usar esta técnica para ver qué resultados nos arroja.
+En este caso, con Kernel Lineal:
 
 
 
 #### SVM Kernel Radial
 
+Ahora vamos a probar SVM pero con Kernel Radial:
 
 
 ### Algoritmos no supervisados
 
 
 #### K-Means
+
+La técnica de clasificación y clustering no supervisada más utilizada es K-Means. K es el número de grupos que queremos formar.
+Se basa en clustering circular o elíptico, lo cual lo limita, pero tendremos que ver qué resultados nos arroja.
 
