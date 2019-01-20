@@ -25,7 +25,7 @@ rm(list=ls())
 
 Importamos los paquetes necesarios:
 
-```{r paquetes, echo=T, results='hide'}
+```{r paquetes, echo=T, results="hide"}
 
 #install.packages("dplyr")
 #install.packages("pryr")
@@ -1248,7 +1248,7 @@ La teoría dice que para K-NN, el mejor número a escoger es la raíz cuadrada d
 
 ```{r sqrt_dataframe.ml.centscal_size}
 
-k <- round(sqrt(nrow(data.ml.centscal)), 0)
+k <- round(sqrt(nrow(data.ml.centscal)), 0) 
 
 ```
 
@@ -1258,7 +1258,7 @@ conjuntoEntrenamiento <- data.ml.centscal[1:45000, ]
 conjuntoTest <- data.ml.centscal[45001 : nrow(data.ml.centscal), ] # Utilizo por supuesto la matriz de centrado y escalado
 
 etiquetasEntrenamiento <- data.ml[1:45000, 2]
-etiquetasTest <- data.ml[45001:nrow(data.ml.centscal), ]
+etiquetasTest <- data.ml[45001:nrow(data.ml.centscal), ] 
 
 ```
 
@@ -1274,7 +1274,7 @@ prediccion.knn.227 <- knn(train = conjuntoEntrenamiento,
                           test = conjuntoTest, 
                           cl = etiquetasEntrenamiento,
                           prob = TRUE,
-                          k = 227)
+                          k = 227) 
 prediccion.knn.227
 
 ```
@@ -1285,7 +1285,7 @@ Sacamos crosstable:
 
 CrossTable(x = etiquetasTest ,
            y = prediccion.knn.227, 
-           prop.chisq = FALSE)
+           prop.chisq = FALSE) 
 ```
 
 
@@ -1299,7 +1299,7 @@ prediccion.knn.150 <- knn(train = conjuntoEntrenamiento,
                           test = conjuntoTest, 
                           cl = etiquetasEntrenamiento,
                           prob = TRUE,
-                          k = 150)
+                          k = 150) 
 prediccion.knn.150
 
 ```
@@ -1310,7 +1310,7 @@ Sacamos crosstable:
 
 CrossTable(x = etiquetasTest ,
            y = prediccion.knn.150, 
-           prop.chisq = FALSE)
+           prop.chisq = FALSE) 
 ```
 
 
@@ -1323,7 +1323,7 @@ prediccion.knn.350 <- knn(train = conjuntoEntrenamiento,
                           test = conjuntoTest, 
                           cl = etiquetasEntrenamiento,
                           prob = TRUE,
-                          k = 350)
+                          k = 350) 
 prediccion.knn.350
 
 ```
@@ -1361,7 +1361,7 @@ Ahora obtenemos el número de árboles que necesitamos realmente, y la importanc
 
 plot(model, main="Random Forest")
 
-varImpPlot(model, main = "Random Forest - MDA y Gini") # Gracias a importance = true
+varImpPlot(model, main = "Random Forest - MDA y Gini") # Gracias a importance = true 
 
 ```
 
@@ -1379,7 +1379,7 @@ Ahora lo voy a hacer con 10 fold X Validation:
 
 ```{r randomforest_10F-XValidation}
 
-result <- rfcv(data.ml, as.factor(data.ml[, 2]), cv.fold=10)
+result <- rfcv(data.ml, as.factor(data.ml[, 2]), cv.fold=10) 
 head(result)
 
 ```
@@ -1395,7 +1395,7 @@ En este caso, con Kernel Lineal:
 
 modelo.svm <- svm(data.ml.centscal, as.factor(data.ml[, 2]), kernel = "linear") # Al poner los grupos como factor, estoy consiguiendo que no sean continuos para el modelo, sino "discretos", ya que los factor no son valores que puedan ser continuos. Con esto consigo una clasificación.
 summary(modelo.svm)
-
+ 
 ```
 
 
@@ -1405,7 +1405,7 @@ Ahora que tenemos creado este primer modelo, toca predecir:
 
 prediccion <- predict(modelo.svm, data.ml.centscal)
 prediccion
-
+ 
 ```
 
 Ahora que hemos predicho, tenemos que sacar la matriz de confusión:
@@ -1415,7 +1415,7 @@ Ahora que hemos predicho, tenemos que sacar la matriz de confusión:
 matriz.conf <- table(prediccion, data.ml[, 2])
 matriz.conf
 
-sum(diag(matriz.conf))/nrow(data.ml)
+sum(diag(matriz.conf))/nrow(data.ml) 
 
 ```
 
@@ -1426,7 +1426,7 @@ Ahora vamos a probar SVM pero con Kernel Radial:
 ```{r creacion_modelo_svm_RBF}
 
 modelo_svm.radial <- svm(data.ml.centscal, as.factor(data.ml[, 2]), kernel="radial")
-summary(modelo_svm.radial)
+summary(modelo_svm.radial) 
 
 ```
 
@@ -1437,7 +1437,7 @@ Ahora que tenemos creado este segundo modelo, toca predecir:
 ```{r prediccion_modelo_svm_RBF}
 
 prediccion.radial <- predict(modelo_svm.radial, data.ml.centscal)
-prediccion.radial
+prediccion.radial 
 
 ```
 
@@ -1447,7 +1447,7 @@ Ahora que hemos predicho, tenemos que sacar la matriz de confusión:
 
 matriz.conf.radial <- table(prediccion.radial, data.ml[, 2])
 matriz.conf.radial
-sum(diag(matriz.conf.radial))/nrow(data.ml)
+sum(diag(matriz.conf.radial))/nrow(data.ml) 
 
 ```
 
