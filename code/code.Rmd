@@ -44,6 +44,8 @@ Importamos los paquetes necesarios:
 #install.packages("fastDummies")
 #install.packages("caret")
 #install.packages("nnet")
+#install.packages("gmodels")
+#install.packages("class")
 
 library("corrplot")
 library("dplyr")
@@ -62,6 +64,8 @@ library("Matrix")
 library("fastDummies")
 library("caret")
 library("nnet")
+library("gmodels")
+library("class")
 
 ```
 
@@ -832,6 +836,39 @@ object_size(data.ml.centscal)
 
 ```
 
+```{r PCA_Calculations_ml}
+
+resultado.pca.ml <- PCA(data.ml.centscal, graph = FALSE)
+
+#Con la siguiente línea podemos ver que podemos hacer con esto calculado
+print(resultado.pca.ml)
+
+```
+Nos interesa ver los eigenvalues, que son los que presentarán la cantidad de varianza que aportan las variables:
+
+```{r table_eigenvalues_PCA_ml}
+
+eigenvalues.PCA.ml <- resultado.pca.ml$eig
+head(eigenvalues.PCA.ml)
+
+```
+Como se puede comprobar, de las 24 variables (componentes) que tenemos, la mitad de la varianza la conseguimos con aproximadamente 5 variables.
+También se puede ver que a parti de las 17 variables prácticamente no hay un aumento de la varianza.
+En el caso de un problema grande, sería interesante la eliminación de algunas de las variables, para dejar un dataset más pequeño con el que poder trabajar. En nuestro caso, nuestro problema es pequeño, y además las variables están escogidas a mano, por lo que no haré una reducción del dataset.
+
+Ahora, para completar este apartado de PCA, lo que voy a hacer es sacar la gráfica de la varianza acumulada con los valores anteriores:
+
+```{r PCA_eigenvalues_graph_ml}
+
+plotPCA.ml <- fviz_screeplot(resultado.pca.ml, ncp=60)
+plot(plotPCA.ml)
+
+```
+
+Como vemos, todas las dimensiones van aportando su "granito de arena", pero ninguna de ellas (según estamos viendo en las 60 primeras) deja de aportar un poco.
+
+Si vamos al dataframe generado en eigenvalues.PCA.ml, vemos que hasta que no llegamos a las 2000 componentes principales no obtenemos al menos un 80% de explicación, mientras que hasta que no llegamos a unas pocas dimensiones del final no obtenemos la explicación completa. Por ello, no reduciré las dimensiones del dataframe, y trabajaremos con él a pesar de que sea más lento y pesado.
+
 
 ### Algoritmos Supervisados
 
@@ -854,6 +891,15 @@ conjuntoEntrenamiento <- sample(1:nrow(data.ml.centscal), 45000)
 ```
 
 
+Creo una tabla para guardar los resultados de todos los tests del perceptrón:
+
+```{r table_results_perceptron}
+
+resultados.perceptron <- data.frame(stringsAsFactors=FALSE) 
+
+```
+
+
 
 ###############################################################
  1 NEURONA ####################################################
@@ -864,39 +910,332 @@ Lo que voy a hacer ahora es entrenar la red neuronal con diferente cantidad de n
 
 SIN SOFTMAX #############################
 
-```{r entrenamiento_1_neurona}
+```{r 1_neurona}
 
-partidas.1neu <- nnet( data.ml.centscal[conjuntoEntrenamiento, ], class.ind( data.ml[conjuntoEntrenamiento, 2] ) , size=1, MaxNWts=10000 )
+# Ahora creamos un dataframe para guardar los resultados de este bucle
+  
+  dataframe.resultados.1neu <- data.frame(Ent_1neu=numeric(),
+                                          Test_1neu=numeric())
 
-#Una vez que lo tengo entrenado, lo que voy a hacer es calcular el error tanto en el entrenamiento como en el test de cada uno
 
-partidas.prediccion.1neu <- predict( partidas.1neu, data.ml.centscal[conjuntoEntrenamiento, ], type="raw" )
-head(partidas.prediccion.1neu) # Vemos las probabilidades de pertenencia de cada valor
+for (i in 1:10)
+{
+  
+  partidas.1neu <- nnet( data.ml.centscal[conjuntoEntrenamiento, ], class.ind( data.ml[conjuntoEntrenamiento, 2] ) , size=1, MaxNWts=10000 )
+  
+  #Una vez que lo tengo entrenado, lo que voy a hacer es calcular el error tanto en el entrenamiento como en el test de cada uno
+  
+  partidas.prediccion.1neu <- predict( partidas.1neu, data.ml.centscal[conjuntoEntrenamiento, ], type="raw" )
+  head(partidas.prediccion.1neu) # Vemos las probabilidades de pertenencia de cada valor
+  
+  # Ahora que los tengo todos entrenados, Determinamos cual es la máxima, es decir, la clase a la que hay que asignar los objetos
+  
+  partidas.prediccion.1neu.class <- apply( partidas.prediccion.1neu, MARGIN=1, FUN='which.is.max')
+  
+  #Calculo el acierto
+  
+  acierto_ent_1neu<- sum( diag( table( partidas.prediccion.1neu.class, data.ml[conjuntoEntrenamiento, 2] ) ) )/length(conjuntoEntrenamiento)
+  
+  ###### TEST
+  
+  
+  partidas.prediccion.test.1neu <- predict( partidas.1neu, data.ml.centscal[-conjuntoEntrenamiento, ], type="raw" )
 
-# Ahora que los tengo todos entrenados, Determinamos cual es la máxima, es decir, la clase a la que hay que asignar los objetos
+  partidas.prediccion.test.1neu.class <- apply( partidas.prediccion.test.1neu, MARGIN=1, FUN='which.is.max')
 
-partidas.prediccion.1neu.class <- apply( partidas.prediccion.1neu, MARGIN=1, FUN='which.is.max')
+  table( partidas.prediccion.test.1neu.class , data.ml[-conjuntoEntrenamiento, 2] )
+  
+  acierto_test_1neu <- sum( diag( table( partidas.prediccion.test.1neu.class, data.ml[-conjuntoEntrenamiento, 2] ) ) )/(nrow(data.ml.centscal) - length(conjuntoEntrenamiento))
 
-#Calculo el acierto
+    
+  dataframe.pasada <- data.frame(Ent_1neu = acierto_ent_1neu,
+                                 Test_1neu= acierto_test_1neu)
+  
+  dataframe.resultados.1neu <- rbind(dataframe.resultados.1neu, dataframe.pasada)
+  
+} 
 
-sum( diag( table( partidas.prediccion.1neu.class, data.ml[conjuntoEntrenamiento, 2] ) ) )/length(conjuntoEntrenamiento) # Índice de acierto
 
 ```
 
-##############
-############## TEST
-##############
+Ahora le vamos a añadir softmax, a ver si mejoramos...
 
-```{r test_1_neurona}
 
-partidas.prediccion.test.1neu <- predict( partidas.1neu, data.ml.centscal[-conjuntoEntrenamiento, ], type="raw" )
+CON SOFTMAX #############################
 
-partidas.prediccion.test.1neu.class <- apply( partidas.prediccion.test.1neu, MARGIN=1, FUN='which.is.max')
+```{r 1_neurona_softmax}
 
-table( partidas.prediccion.test.1neu.class , data.ml[-conjuntoEntrenamiento, 2] )
-sum( diag( table( partidas.prediccion.test.1neu.class, data.ml[-conjuntoEntrenamiento, 2] ) ) )/(nrow(data.ml.centscal) - length(conjuntoEntrenamiento))
+
+  dataframe.resultados.1neu.soft <- data.frame(Ent_1neu_soft=numeric(),
+                                               Test_1neu_soft=numeric())
+
+for (i in 1:10)
+{
+  
+  partidas.1neu.soft <- nnet( data.ml.centscal[conjuntoEntrenamiento, ], class.ind( data.ml[conjuntoEntrenamiento, 2] ) , size=1, MaxNWts=10000, softmax = T )
+  
+  #Una vez que lo tengo entrenado, lo que voy a hacer es calcular el error tanto en el entrenamiento como en el test de cada uno
+  
+  partidas.prediccion.1neu.soft <- predict( partidas.1neu.soft, data.ml.centscal[conjuntoEntrenamiento, ], type="raw" )
+  head(partidas.prediccion.1neu.soft) # Vemos las probabilidades de pertenencia de cada valor
+  
+  # Ahora que los tengo todos entrenados, Determinamos cual es la máxima, es decir, la clase a la que hay que asignar los objetos
+  
+  partidas.prediccion.1neu.class.soft <- apply( partidas.prediccion.1neu.soft, MARGIN=1, FUN='which.is.max')
+  
+  #Calculo el acierto
+  
+  acierto_ent_1neu.soft <- sum( diag( table( partidas.prediccion.1neu.class.soft, data.ml[conjuntoEntrenamiento, 2] ) ) )/length(conjuntoEntrenamiento)
+  
+  ###### TEST
+  
+  
+  partidas.prediccion.test.1neu.soft <- predict( partidas.1neu.soft, data.ml.centscal[-conjuntoEntrenamiento, ], type="raw" )
+
+  partidas.prediccion.test.1neu.class.soft <- apply( partidas.prediccion.test.1neu.soft, MARGIN=1, FUN='which.is.max')
+
+  table( partidas.prediccion.test.1neu.class.soft , data.ml[-conjuntoEntrenamiento, 2] )
+  
+  acierto_test_1neu.soft <- sum( diag( table( partidas.prediccion.test.1neu.class.soft, data.ml[-conjuntoEntrenamiento, 2] ) ) )/(nrow(data.ml.centscal) - length(conjuntoEntrenamiento))
+
+    
+  dataframe.pasada <- data.frame(Ent_1neu_soft = acierto_ent_1neu.soft,
+                                 Test_1neu_soft= acierto_test_1neu.soft)
+  
+  dataframe.resultados.1neu.soft <- rbind(dataframe.resultados.1neu.soft, dataframe.pasada)
+  
+} 
 
 ```
+
+
+###############################################################
+ 2 NEURONAS ###################################################
+###############################################################
+
+
+SIN SOFTMAX #############################
+
+```{r 2_neuronas}
+
+dataframe.resultados.2neu <- data.frame(Ent_2neu=numeric(),
+                                        Test_2neu=numeric())
+
+
+for (i in 1:10)
+{
+  
+  partidas.2neu <- nnet( data.ml.centscal[conjuntoEntrenamiento, ], class.ind( data.ml[conjuntoEntrenamiento, 2] ) , size=2, MaxNWts=10000 )
+  
+  #Una vez que lo tengo entrenado, lo que voy a hacer es calcular el error tanto en el entrenamiento como en el test de cada uno
+  
+  partidas.prediccion.2neu <- predict( partidas.2neu, data.ml.centscal[conjuntoEntrenamiento, ], type="raw" )
+  head(partidas.prediccion.2neu) # Vemos las probabilidades de pertenencia de cada valor
+  
+  # Ahora que los tengo todos entrenados, Determinamos cual es la máxima, es decir, la clase a la que hay que asignar los objetos
+  
+  partidas.prediccion.2neu.class <- apply( partidas.prediccion.2neu, MARGIN=1, FUN='which.is.max')
+  
+  #Calculo el acierto
+  
+  acierto_ent_2neu<- sum( diag( table( partidas.prediccion.2neu.class, data.ml[conjuntoEntrenamiento, 2] ) ) )/length(conjuntoEntrenamiento)
+  
+  ###### TEST
+  
+  
+  partidas.prediccion.test.2neu <- predict( partidas.2neu, data.ml.centscal[-conjuntoEntrenamiento, ], type="raw" )
+
+  partidas.prediccion.test.2neu.class <- apply( partidas.prediccion.test.2neu, MARGIN=1, FUN='which.is.max')
+
+  table( partidas.prediccion.test.2neu.class , data.ml[-conjuntoEntrenamiento, 2] )
+  
+  acierto_test_2neu <- sum( diag( table( partidas.prediccion.test.2neu.class, data.ml[-conjuntoEntrenamiento, 2] ) ) )/(nrow(data.ml.centscal) - length(conjuntoEntrenamiento))
+
+    
+  dataframe.pasada <- data.frame(Ent_2neu = acierto_ent_2neu,
+                                 Test_2neu= acierto_test_2neu)
+  
+  dataframe.resultados.2neu <- rbind(dataframe.resultados.2neu, dataframe.pasada)
+  
+} 
+
+```
+
+Ahora le vamos a añadir softmax, a ver si mejoramos...
+
+
+CON SOFTMAX #############################
+
+```{r 2_neuronas_softmax}
+
+dataframe.resultados.2neu.soft <- data.frame(Ent_2neu_soft=numeric(),
+                                             Test_2neu_soft=numeric())
+
+for (i in 1:10)
+{
+  
+  partidas.2neu.soft <- nnet( data.ml.centscal[conjuntoEntrenamiento, ], class.ind( data.ml[conjuntoEntrenamiento, 2] ) , size=2, MaxNWts=10000, softmax = T )
+  
+  #Una vez que lo tengo entrenado, lo que voy a hacer es calcular el error tanto en el entrenamiento como en el test de cada uno
+  
+  partidas.prediccion.2neu.soft <- predict( partidas.2neu.soft, data.ml.centscal[conjuntoEntrenamiento, ], type="raw" )
+  head(partidas.prediccion.2neu.soft) # Vemos las probabilidades de pertenencia de cada valor
+  
+  # Ahora que los tengo todos entrenados, Determinamos cual es la máxima, es decir, la clase a la que hay que asignar los objetos
+  
+  partidas.prediccion.2neu.class.soft <- apply( partidas.prediccion.2neu.soft, MARGIN=1, FUN='which.is.max')
+  
+  #Calculo el acierto
+  
+  acierto_ent_2neu.soft <- sum( diag( table( partidas.prediccion.2neu.class.soft, data.ml[conjuntoEntrenamiento, 2] ) ) )/length(conjuntoEntrenamiento)
+  
+  ###### TEST
+  
+  
+  partidas.prediccion.test.2neu.soft <- predict( partidas.2neu.soft, data.ml.centscal[-conjuntoEntrenamiento, ], type="raw" )
+
+  partidas.prediccion.test.2neu.class.soft <- apply( partidas.prediccion.test.2neu.soft, MARGIN=1, FUN='which.is.max')
+
+  table( partidas.prediccion.test.2neu.class.soft , data.ml[-conjuntoEntrenamiento, 2] )
+  
+  acierto_test_2neu.soft <- sum( diag( table( partidas.prediccion.test.2neu.class.soft, data.ml[-conjuntoEntrenamiento, 2] ) ) )/(nrow(data.ml.centscal) - length(conjuntoEntrenamiento))
+
+    
+  dataframe.pasada <- data.frame(Ent_2neu_soft = acierto_ent_2neu.soft,
+                                 Test_2neu_soft= acierto_test_2neu.soft)
+  
+  dataframe.resultados.2neu.soft <- rbind(dataframe.resultados.2neu.soft, dataframe.pasada)
+  
+} 
+
+```
+
+
+
+
+###############################################################
+ 3 NEURONAS ###################################################
+###############################################################
+
+
+SIN SOFTMAX #############################
+
+```{r 3_neuronas}
+
+dataframe.resultados.3neu <- data.frame(Ent_3neu=numeric(),
+                                        Test_3neu=numeric())
+
+
+for (i in 1:10)
+{
+  
+  partidas.3neu <- nnet( data.ml.centscal[conjuntoEntrenamiento, ], class.ind( data.ml[conjuntoEntrenamiento, 2] ) , size=3, MaxNWts=10000 )
+  
+  #Una vez que lo tengo entrenado, lo que voy a hacer es calcular el error tanto en el entrenamiento como en el test de cada uno
+  
+  partidas.prediccion.3neu <- predict( partidas.2neu, data.ml.centscal[conjuntoEntrenamiento, ], type="raw" )
+  head(partidas.prediccion.3neu) # Vemos las probabilidades de pertenencia de cada valor
+  
+  # Ahora que los tengo todos entrenados, Determinamos cual es la máxima, es decir, la clase a la que hay que asignar los objetos
+  
+  partidas.prediccion.3neu.class <- apply( partidas.prediccion.3neu, MARGIN=1, FUN='which.is.max')
+  
+  #Calculo el acierto
+  
+  acierto_ent_3neu<- sum( diag( table( partidas.prediccion.3neu.class, data.ml[conjuntoEntrenamiento, 2] ) ) )/length(conjuntoEntrenamiento)
+  
+  ###### TEST
+  
+  
+  partidas.prediccion.test.3neu <- predict( partidas.3neu, data.ml.centscal[-conjuntoEntrenamiento, ], type="raw" )
+
+  partidas.prediccion.test.3neu.class <- apply( partidas.prediccion.test.3neu, MARGIN=1, FUN='which.is.max')
+
+  table( partidas.prediccion.test.3neu.class , data.ml[-conjuntoEntrenamiento, 2] )
+  
+  acierto_test_3neu <- sum( diag( table( partidas.prediccion.test.3neu.class, data.ml[-conjuntoEntrenamiento, 2] ) ) )/(nrow(data.ml.centscal) - length(conjuntoEntrenamiento))
+
+    
+  dataframe.pasada <- data.frame(Ent_3neu = acierto_ent_3neu,
+                                 Test_3neu= acierto_test_3neu)
+  
+  dataframe.resultados.3neu <- rbind(dataframe.resultados.3neu, dataframe.pasada)
+  
+} 
+
+```
+
+Ahora le vamos a añadir softmax, a ver si mejoramos...
+
+
+CON SOFTMAX #############################
+
+```{r 3_neuronas_softmax}
+
+dataframe.resultados.3neu.soft <- data.frame(Ent_3neu_soft=numeric(),
+                                             Test_3neu_soft=numeric())
+
+for (i in 1:10)
+{
+  
+  partidas.3neu.soft <- nnet( data.ml.centscal[conjuntoEntrenamiento, ], class.ind( data.ml[conjuntoEntrenamiento, 2] ) , size=3, MaxNWts=10000, softmax = T )
+  
+  #Una vez que lo tengo entrenado, lo que voy a hacer es calcular el error tanto en el entrenamiento como en el test de cada uno
+  
+  partidas.prediccion.3neu.soft <- predict( partidas.3neu.soft, data.ml.centscal[conjuntoEntrenamiento, ], type="raw" )
+  head(partidas.prediccion.3neu.soft) # Vemos las probabilidades de pertenencia de cada valor
+  
+  # Ahora que los tengo todos entrenados, Determinamos cual es la máxima, es decir, la clase a la que hay que asignar los objetos
+  
+  partidas.prediccion.3neu.class.soft <- apply( partidas.prediccion.3neu.soft, MARGIN=1, FUN='which.is.max')
+  
+  #Calculo el acierto
+  
+  acierto_ent_3neu.soft <- sum( diag( table( partidas.prediccion.3neu.class.soft, data.ml[conjuntoEntrenamiento, 2] ) ) )/length(conjuntoEntrenamiento)
+  
+  ###### TEST
+  
+  
+  partidas.prediccion.test.3neu.soft <- predict( partidas.3neu.soft, data.ml.centscal[-conjuntoEntrenamiento, ], type="raw" )
+
+  partidas.prediccion.test.3neu.class.soft <- apply( partidas.prediccion.test.3neu.soft, MARGIN=1, FUN='which.is.max')
+
+  table( partidas.prediccion.test.3neu.class.soft , data.ml[-conjuntoEntrenamiento, 2] )
+  
+  acierto_test_3neu.soft <- sum( diag( table( partidas.prediccion.test.3neu.class.soft, data.ml[-conjuntoEntrenamiento, 2] ) ) )/(nrow(data.ml.centscal) - length(conjuntoEntrenamiento))
+
+    
+  dataframe.pasada <- data.frame(Ent_3neu_soft = acierto_ent_3neu.soft,
+                                 Test_3neu_soft= acierto_test_3neu.soft)
+  
+  dataframe.resultados.3neu.soft <- rbind(dataframe.resultados.3neu.soft, dataframe.pasada)
+  
+} 
+
+```
+
+
+
+Ahora juntamos todos los resultados:
+
+```{r join_results_perceptron}
+
+dataframe.resultados.perceptron <- cbind(dataframe.resultados.1neu, 
+                                         dataframe.resultados.1neu.soft, 
+                                         dataframe.resultados.2neu,
+                                         dataframe.resultados.2neu.soft,
+                                         dataframe.resultados.3neu,
+                                         dataframe.resultados.3neu.soft)
+
+remove(dataframe.resultados.1neu)
+remove(dataframe.resultados.1neu.soft)
+remove(dataframe.resultados.2neu)
+remove(dataframe.resultados.2neu.soft)
+remove(dataframe.resultados.3neu)
+remove(dataframe.resultados.3neu.soft)
+
+```
+
 
 
 
@@ -905,12 +1244,145 @@ sum( diag( table( partidas.prediccion.test.1neu.class, data.ml[-conjuntoEntrenam
 
 K - Nearest Neighbours es otro algoritmo de clasificación muy utilizado. Se basa en la posición del nodo que se está analizando con los K nodos más cercanos mediante distancia euclídea. De este modo, calcula la similitud e indentifica a un nodo como de un grupo o de otro.
 
+La teoría dice que para K-NN, el mejor número a escoger es la raíz cuadrada del total de observaciones que tenemos. Lo calculamos:
 
+```{r sqrt_dataframe.ml.centscal_size}
+
+k <- round(sqrt(nrow(data.ml.centscal)), 0)
+
+```
+
+```{r creacion_grupos_knn}
+
+conjuntoEntrenamiento <- data.ml.centscal[1:45000, ]
+conjuntoTest <- data.ml.centscal[45001 : nrow(data.ml.centscal), ] # Utilizo por supuesto la matriz de centrado y escalado
+
+etiquetasEntrenamiento <- data.ml[1:45000, 2]
+etiquetasTest <- data.ml[45001:nrow(data.ml.centscal), ]
+
+```
+
+
+Ahora lo que vamos a hacer es calcular para diferentes K's el resultado que obtenemos, para ver qué tal clasifica:
+
+
+###### K = 227 
+
+```{r knn_227}
+
+prediccion.knn.227 <- knn(train = conjuntoEntrenamiento, 
+                          test = conjuntoTest, 
+                          cl = etiquetasEntrenamiento,
+                          prob = TRUE,
+                          k = 227)
+prediccion.knn.227
+
+```
+
+Sacamos crosstable:
+
+```{r crosstable_227}
+
+CrossTable(x = etiquetasTest ,
+           y = prediccion.knn.227, 
+           prop.chisq = FALSE)
+```
+
+
+Ahora voy a hacer lo mismo con 150 y con 350, para ver las diferencias que puede haber con la predicción:
+
+###### K = 150 
+
+```{r knn_150}
+
+prediccion.knn.150 <- knn(train = conjuntoEntrenamiento, 
+                          test = conjuntoTest, 
+                          cl = etiquetasEntrenamiento,
+                          prob = TRUE,
+                          k = 150)
+prediccion.knn.150
+
+```
+
+Sacamos crosstable:
+
+```{r crosstable_150}
+
+CrossTable(x = etiquetasTest ,
+           y = prediccion.knn.150, 
+           prop.chisq = FALSE)
+```
+
+
+
+###### K = 350 
+
+```{r knn_350}
+
+prediccion.knn.350 <- knn(train = conjuntoEntrenamiento, 
+                          test = conjuntoTest, 
+                          cl = etiquetasEntrenamiento,
+                          prob = TRUE,
+                          k = 350)
+prediccion.knn.350
+
+```
+
+Sacamos crosstable:
+
+```{r crosstable_350}
+
+CrossTable(x = etiquetasTest ,
+           y = prediccion.knn.350, 
+           prop.chisq = FALSE)
+```
 
 
 #### Random Forest
 
 Random Forest es otro algoritmo supervisado que se basa en la creación de árboles de decisión, en los cuales se hacen preguntas y según la contestación obtenemos un resultado u otro. Finalmente, todos los bosques que se forman llegan a un acuerdo y se pone la decisión final.
+
+```{r randomforest_firstTry}
+
+model <- randomForest(as.factor(data.ml[, 2]) ~ ., data = data.ml, importance = TRUE, ntree = 300)
+model
+
+```
+Aquí podemos ver la matriz de confusión, de la que obtenemos también el fallo por clases.
+
+El Out-Of-Bag es un método de estimación de error que se usa en algunos algoritmos como Random Forest, y usa el modelo de Bagging para hacer muestras de submuestras usadas para el entrenamiento.
+El OOB es el error de predidcción medio de cada una de las muestras de entrenamiento.
+
+Bagging es un meta-algoritmo usado para aumentar la estabilidad y precisión de algoritmos de Machine Learning de clasificación y regresión.
+
+Ahora obtenemos el número de árboles que necesitamos realmente, y la importancia de las variables en este modelo:
+
+```{r importance_graphs_RF_firstTry}
+
+plot(model, main="Random Forest")
+
+varImpPlot(model, main = "Random Forest - MDA y Gini") # Gracias a importance = true
+
+```
+
+
+Vamos a interpretar estos datos del modelo:
+
++ MeanDecreaseAccuracy se refiere al decremento de la exactitud del modelo si se permutan los valores en cada característica. En otras palabras, MDA nos muestra la media de valores que se clasificarían mal si se quitara esa característica de la predicción.
+
++ MeanDecreaseGini se refiere a la medida de la ganancia media de pureza mediante la división de cierta variable. Cuanto más importante sea la variable, habrá un mayor descenso en el Gini. La importancia de este está íntimamente relacionada a la función de decisión local, que Random Forest usa para seleccionar cual es la mejor separación.
+
+
+
+
+Ahora lo voy a hacer con 10 fold X Validation:
+
+```{r randomforest_10F-XValidation}
+
+result <- rfcv(data.ml, as.factor(data.ml[, 2]), cv.fold=10)
+head(result)
+
+```
 
 
 #### SVM Kernel Lineal
@@ -919,10 +1391,65 @@ SVM es una técnica supervisada que es muy robusta frente a la dimensionalidad. 
 En este caso, con Kernel Lineal:
 
 
+```{r creacion_modelo_svm}
+
+modelo.svm <- svm(data.ml.centscal, as.factor(data.ml[, 2]), kernel = "linear") # Al poner los grupos como factor, estoy consiguiendo que no sean continuos para el modelo, sino "discretos", ya que los factor no son valores que puedan ser continuos. Con esto consigo una clasificación.
+summary(modelo.svm)
+
+```
+
+
+Ahora que tenemos creado este primer modelo, toca predecir:
+
+```{r prediccion_svm}
+
+prediccion <- predict(modelo.svm, data.ml.centscal)
+prediccion
+
+```
+
+Ahora que hemos predicho, tenemos que sacar la matriz de confusión:
+
+```{r matriz_confusion_svm_Acierto}
+
+matriz.conf <- table(prediccion, data.ml[, 2])
+matriz.conf
+
+sum(diag(matriz.conf))/nrow(data.ml)
+
+```
 
 #### SVM Kernel Radial
 
 Ahora vamos a probar SVM pero con Kernel Radial:
+
+```{r creacion_modelo_svm_RBF}
+
+modelo_svm.radial <- svm(data.ml.centscal, as.factor(data.ml[, 2]), kernel="radial")
+summary(modelo_svm.radial)
+
+```
+
+Aquí tenemos una C-Classification (necesaria para clasificar), con Kernel esta vez radial.
+
+Ahora que tenemos creado este segundo modelo, toca predecir:
+
+```{r prediccion_modelo_svm_RBF}
+
+prediccion.radial <- predict(modelo_svm.radial, data.ml.centscal)
+prediccion.radial
+
+```
+
+Ahora que hemos predicho, tenemos que sacar la matriz de confusión:
+
+```{r matriz_confusion_svm_RBF_Acierto}
+
+matriz.conf.radial <- table(prediccion.radial, data.ml[, 2])
+matriz.conf.radial
+sum(diag(matriz.conf.radial))/nrow(data.ml)
+
+```
 
 
 ### Algoritmos no supervisados
