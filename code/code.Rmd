@@ -1,12 +1,13 @@
 ---
+
 title: "Haciendo Big Data a League of Legends"
 author: "Jorge de Andrés"
 date: "16 de enero de 2019"
 output:
-  
   html_document: default
   word_document: default
   pdf_document: default
+  
 ---
 
 ```{r setup, include=FALSE}
@@ -49,6 +50,9 @@ Importamos los paquetes necesarios:
 #install.packages("randomforest")
 #install.packages("e1071")
 #install.packages("aplpack")
+#install.packages("cluster")
+#install.packages("fpc")
+#install.packages("purrr")
 
 library("corrplot")
 library("dplyr")
@@ -72,6 +76,9 @@ library("class")
 library("randomForest")
 library("e1071")
 library("aplpack")
+library("cluster")
+library("fpc")
+library("purrr")
 
 
 ```
@@ -104,8 +111,8 @@ Tamaño de mis datasets...
 
 ```{r tamaño_datasets}
 
-print("El tamaño de la tabla de games es de: ")
-object_size(data.games) # Es un dataset de 433 MB
+print( paste0("El tamaño de la tabla de games es de: "))
+object_size(data.games)
 
 ```
 Esto me devuelve las filas que tengan NA:
@@ -1369,6 +1376,8 @@ k <- round(sqrt(nrow(data.ml.stats.centscal)), 0)
 
 ```
 
+Ahora creamos los grupos: 
+
 ```{r creacion_grupos_knn}
 
 conjuntoEntrenamiento <- data.ml.stats.centscal[1:45000, ]
@@ -1538,6 +1547,7 @@ sum(diag(matriz.conf))/nrow(data.ml)
 
 ```
 
+
 #### SVM Kernel Radial
 
 Ahora vamos a probar SVM pero con Kernel Radial:
@@ -1583,4 +1593,46 @@ Los otros dos dataframes que he creado (champions y total) tendríamos que proba
 
 La técnica de clasificación y clustering no supervisada más utilizada es K-Means. K es el número de grupos que queremos formar.
 Se basa en clustering circular o elíptico, lo cual lo limita, pero tendremos que ver qué resultados nos arroja.
+
+Este método, como lo estoy haciendo de las 51490 partidas, puede tardar un poco en procesar:
+
+```{r kmeans}
+
+datos.kmeans <- data.ml[1:nrow(data.ml)]
+
+clusters <- kmeans(datos.kmeans, centers = 2) #Dos centros, uno por vencedor
+clusters$centers
+
+clusters$cluster
+
+
+# Ahora sacamos las plots
+
+#Esta representación es sobre los dos ejes principales (componentes) que más explicación dan
+clusplot(datos.kmeans, clusters$cluster, color = T, main = "Representación de 200 partidas en 2D - Función Clusplot", xlab = "Componente 1", ylab = "Componente 2")
+
+#Esta representación es con componentes discriminantes, que consisten en las dos dimensiones donde la representación de los datos es más linealmente separable respecto a la predicción de los grupos que ha hecho kmeans
+
+plotcluster(datos.kmeans, clusters$cluster)
+
+```
+
+Como podemos ver, los datos de ninguna manera son perfectamente separables, sino que las partidas que gana el equipo 1 se centran más a la izquierda en esta componente discriminante que forma x, y las del dos se centran más a la derecha. Como podemos ver, está bastante difuminada la frontera.
+
+
+#### Cluster Jerárquico
+
+En este caso, el cluster lo haré con un número reducido de partidas, ya que si no el cluster no se verá demasiado bien:
+
+```{r cluster_jerarquico}
+
+#Usamos la matriz de centrado y escalado para que cada coordenada represente el mismo grado de diferencia
+
+d <- dist(data.ml.stats.centscal[1:60, ], method = "euclidean")
+
+cluster.jerarquico <- hclust(d, method = "complete" )
+
+plot(cluster.jerarquico, cex = 0.5, hang = -1, main="Dendrograma 60 primeras partidas")
+
+```
 
