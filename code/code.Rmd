@@ -901,10 +901,9 @@ A partir del dataset total, voy a hacer un dataset solo con los campeones (ya co
 
 ```{r creacion_dataset_ml_solo_camps}
 
-data.ml.campeones.centscal <- data.ml[, 19:2788]
+data.ml.campeones. <- data.ml[, 19:2788]
 
-preObjeto.campeones <- preProcess(data.ml.campeones.centscal, method=c("center", "scale"))  # Quiero hacer un centrado y escalado
-data.ml.campeones.centscal <- predict(preObjeto.campeones, data.ml.campeones.centscal)
+matriz.sparse.campeones <- Matrix(data.ml.campeones, sparse = T)
 
 ```
 
@@ -912,7 +911,7 @@ Ahora, al igual que antes, calculamos el PCA:
 
 ```{r PCA_Calculations_campeones_ml}
 
-resultado.pca.campeones.ml <- PCA(data.ml.campeones.centscal, graph = FALSE)
+resultado.pca.campeones.ml <- PCA(data.ml.campeones, graph = FALSE)
 
 #Con la siguiente línea podemos ver que podemos hacer con esto calculado
 print(resultado.pca.campeones.ml)
@@ -1609,7 +1608,7 @@ clusters$cluster
 # Ahora sacamos las plots
 
 #Esta representación es sobre los dos ejes principales (componentes) que más explicación dan
-clusplot(datos.kmeans, clusters$cluster, color = T, main = "Representación de 200 partidas en 2D - Función Clusplot", xlab = "Componente 1", ylab = "Componente 2")
+clusplot(datos.kmeans, clusters$cluster, color = T, main = "Representación de las 51490 partidas en 2D - Función Clusplot", xlab = "Componente 1", ylab = "Componente 2")
 
 #Esta representación es con componentes discriminantes, que consisten en las dos dimensiones donde la representación de los datos es más linealmente separable respecto a la predicción de los grupos que ha hecho kmeans
 
@@ -1628,11 +1627,16 @@ En este caso, el cluster lo haré con un número reducido de partidas, ya que si
 
 #Usamos la matriz de centrado y escalado para que cada coordenada represente el mismo grado de diferencia
 
-d <- dist(data.ml.stats.centscal[1:60, ], method = "euclidean")
+d <- dist(data.ml.stats.centscal[1:75, ], method = "euclidean")
 
 cluster.jerarquico <- hclust(d, method = "complete" )
 
+png("clusterJerárquico.png")
+
 plot(cluster.jerarquico, cex = 0.5, hang = -1, main="Dendrograma 60 primeras partidas")
+
+dev.off()
+
 
 ```
 
