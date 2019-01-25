@@ -177,6 +177,19 @@ El primer gráfico que muestro es entre la duración de las partidas y la tempor
 corrplot(res.games.round, method="circle", type = "upper")
 
 ```
+
+Exportamos el corrplot a PDF para tenerlo vectorial y poderlo ver mejor...
+
+```{r export_PDF_corrplot}
+
+pdf("../imagenes/corrplot.pdf")
+corrplot(res.games.round, method="circle", type = "upper")
+dev.off
+
+
+```
+
+
 Podemos apreciar las siguientes correlaciones sobre destruir torres:
 
 + Destruir más torres tiene una relación directa con destruir inhibidores
@@ -264,6 +277,21 @@ fviz_pca_ind(resultado.pca)
 
 ```
 
+Exportamos estos gráficos del PCA de los individuos...
+
+```{r export_PCA_individuos}
+
+pdf("../imagenes/PCAIndividuos.pdf")
+
+plot(plotPCA)
+fviz_pca_var(resultado.pca)
+fviz_pca_ind(resultado.pca)
+
+dev.off
+
+```
+
+
 Como se puede apreciar en este gráfico también, prácticamente todas las partidas forman un gran cluster (representado sobre las dos componentes con más variabilidad), y esto nos demuestra que no hay demasiada varianza entre unas partidas y otras. En otras palabras, no podemos distinguir fácilmente varios tipos de partidas, todas son parecidas y no hay diferencias suficientes para clasificar en grupos, más que en uno grande.
 
 
@@ -276,6 +304,17 @@ muestra_partidas <- cbind(muestra_partidas, data.games[1:16, 52:56])
 faces(muestra_partidas[1:10], face.type=1,labels=data.games[1:16, 5], main = "Diferencias entre partidas", scale = TRUE, cex = 1.5)
 
 ```
+
+Lo exportamos a PDF para tener más calidad al pasarlo a vectorial...
+
+```{r export_PDF_chernoff}
+
+pdf("../imagenes/chernoff partidas.pdf")
+faces(muestra_partidas[1:10], face.type=1,labels=data.games[1:16, 5], main = "Diferencias entre partidas", scale = TRUE, cex = 1.5)
+dev.off
+
+```
+
 
 Como podemos ver, hay diferencias entre las partidas ganadas por el equipo 1 (caras en general más grandes y geométricas, pelo hacia arriba) y las del equipo 2 (pelo hacia abajo y amarillo, cara roja en la mitad, cara redondeada...)
 
@@ -376,6 +415,20 @@ print(ratio.ban.yasuo)
 
 ```
 
+Exportamos el wordcloud a PDF para tenerlo vectorial...
+
+```{r export_PDF_wordcloud_bans}
+
+set.seed(9999) # Para el mantenimiento del mismo patrón
+
+wordcloud(words = df.bans$name, freq = df.bans$total, min.freq = 1, random.order=FALSE, 
+          rot.per=0.5, colors=c("Orange","Purple","Pink", "Red", "Yellow", "Green", "Blue", "Black"))
+
+dev.off
+
+```
+
+
 Pregunta respondida.
 
 ### ¿Matar un mayor número de dragones aumenta las posibilidades de victoria?
@@ -409,6 +462,19 @@ corrplot(res.dragons.win.round, method="square", type = "upper", tl.srt = 0.7)
 
 ```
 
+Lo exportamos a PDF para poderlo ver con mayor calidad...
+
+```{r export_PDF_correlaciones_Drakes}
+
+pdf("../imagenes/DrakesCorr.pdf")
+
+corrplot(res.dragons.win.round, method="square", type = "upper", tl.srt = 0.7)
+
+dev.off
+
+```
+
+
 Como podemos ver, tenemos una correlación de aproximadamente el 50% entre el aumento del número de dragones matados y conseguir la victoria.
 
 
@@ -436,6 +502,20 @@ Procedemos igual con el equipo 2:
 mosaicplot(table(data.dragons.win[, 2], data.dragons.win[, 3]), main='Winrate por dragones matados, Equipo 2', shade=TRUE)
 
 ```
+
+Exportamos los MosaicPlot a PDF para tenerlos vectoriales...
+
+```{r export_PDF_mosaicPlot_drakes}
+
+pdf("../imagenes/Drakes MosaicPlot.pdf")
+
+mosaicplot(table(data.dragons.win[, 1], data.dragons.win[, 3]), main='Winrate por dragones matados, Equipo 1', shade=TRUE)
+mosaicplot(table(data.dragons.win[, 2], data.dragons.win[, 3]), main='Winrate por dragones matados, Equipo 2', shade=TRUE)
+
+dev.off
+
+```
+
 
 Como se puede observar, las distribuciones son prácticamente similares, solo que en espejo como es normal.
 
@@ -522,7 +602,8 @@ Ahora que tenemos todos los picks contados, es hora de hacer un wordcloud para p
 set.seed(9998) # Para el mantenimiento del mismo patrón
 
 wordcloud(words = df.picks$name, freq = df.picks$total, min.freq = 3000, random.order=FALSE,
-          rot.per=0.5, colors=c("Orange","Purple","Pink", "Red", "Yellow", "Green", "Blue", "Black"))
+          rot.per=0.5, colors=c("Orange","Purple","Pink", "Red", "Yellow", "Green", "Blue", "Black")
+         )
 
 # Ratio del más baneado
 
@@ -531,6 +612,23 @@ ratio.pick.thresh <- df.picks$total[1]/sum(df.picks$total)
 print(ratio.pick.thresh)
 
 ```
+
+Exporto el Wordcloud a PDF para tenerlo vectorial...
+
+```{r export_wordcloud_picks}
+
+pdf("../imagenes/wordcloudPicks.pdf")
+
+set.seed(9998) # Para el mantenimiento del mismo patrón
+
+wordcloud(words = df.picks$name, freq = df.picks$total, min.freq = 3000, random.order=FALSE,
+          rot.per=0.5, colors=c("Orange","Purple","Pink", "Red", "Yellow", "Green", "Blue", "Black")
+         )
+
+dev.off
+
+```
+
 
 Está muy bien que Thresh y Tristana sean los más elegidos, pero... ¿esto es porque conllevan mayor victoria de partidas?
 Vamos a calcularlo:
@@ -670,6 +768,17 @@ pie(table(data.games$winner), main = "Victorias por equipo", col = c("Blue", "Re
 
 ```
 
+Lo exportamos a PDF...
+
+```{r export_PDF_winrate}
+
+pdf("../imagenes/Winrate Graphs.pdf")
+barplot(ratios_win, main="Victorias por equipo", ylab="Equipo", col = c("Blue", "Red"))
+pie(table(data.games$winner), main = "Victorias por equipo", col = c("Blue", "Red"))
+dev.off
+
+```
+
 
 ### ¿Quién consigue más primeros objetivos?
 
@@ -735,10 +844,26 @@ colours = c("white","blue","red")
 
 barplot(dataframe.firstObjective, main='Cantidad de primer objetivo de cada tipo conseguido por los equipos',ylab='Veces', xlab='Evento',beside = TRUE, 
         col=colours, ylim=c(0,max(dataframe.firstObjective)*1.3))
-# to add a box around the plot
+
 box()
 
 ```
+
+Exportamos a PDF este gráfico...
+
+```{r export_cronologia_partida_first_obj}
+
+pdf("../imagenes/Barplot Cronología Partida FO.pdf")
+
+barplot(dataframe.firstObjective, main='Cantidad de primer objetivo de cada tipo conseguido por los equipos',ylab='Veces', xlab='Evento',beside = TRUE, 
+        col=colours, ylim=c(0,max(dataframe.firstObjective)*1.3))
+
+box()
+
+dev.off
+
+```
+
 
 
 Como podemos ver en los gráficos, la primera sangre y primera torre suelen caer un poco más del lado del equipo azul, siendo estos elementos que se dan al principio de la partida.
@@ -870,6 +995,7 @@ resultado.pca.ml <- PCA(data.ml.centscal, graph = FALSE)
 print(resultado.pca.ml)
 
 ```
+
 Nos interesa ver los eigenvalues, que son los que presentarán la cantidad de varianza que aportan las variables:
 
 ```{r table_eigenvalues_PCA_ml}
@@ -891,6 +1017,17 @@ plot(plotPCA.ml)
 
 ```
 
+Exportamos a PDF...
+
+```{r export_PDF_total}
+
+pdf("../imagenes/PCATotal.pdf")
+plot(plotPCA.ml)
+dev.off
+
+```
+
+
 Como vemos, todas las dimensiones van aportando su "granito de arena", pero ninguna de ellas (según estamos viendo en las 60 primeras) deja de aportar un poco.
 
 Si vamos al dataframe generado en eigenvalues.PCA.ml, vemos que hasta que no llegamos a las 2000 componentes principales no obtenemos al menos un 80% de explicación, mientras que hasta que no llegamos a unas pocas dimensiones del final no obtenemos la explicación completa. Por ello, no reduciré las dimensiones del dataframe, y trabajaremos con él a pesar de que sea más lento y pesado.
@@ -901,9 +1038,9 @@ A partir del dataset total, voy a hacer un dataset solo con los campeones (ya co
 
 ```{r creacion_dataset_ml_solo_camps}
 
-data.ml.campeones. <- data.ml[, 19:2788]
+data.ml.campeones <- data.ml[, 19:2788]
 
-matriz.sparse.campeones <- Matrix(data.ml.campeones, sparse = T)
+#matriz.sparse.campeones <- Matrix(data.ml.campeones, sparse = T)
 
 ```
 
@@ -933,6 +1070,16 @@ Ahora, para completar este apartado de PCA, lo que voy a hacer es sacar la gráf
 
 plotPCA.campeones.ml <- fviz_screeplot(resultado.pca.campeones.ml, ncp=60)
 plot(plotPCA.campeones.ml)
+
+```
+
+Exportamos a PDF...
+
+```{r export_PDF_mlCampeones}
+
+pdf("../imagenes/PCACampones.pdf")
+plot(plotPCA.campeones.ml)
+dev.off
 
 ```
 
@@ -977,6 +1124,16 @@ Ahora, para completar este apartado de PCA, lo que voy a hacer es sacar la gráf
 
 plotPCA.stats.ml <- fviz_screeplot(resultado.pca.stats.ml, ncp=60)
 plot(plotPCA.stats.ml)
+
+```
+
+Exportamos a PDF:
+
+```{r export_PDF_ml.stats}
+
+pdf("../imagenes/PCAstatsML.pdf")
+plot(plotPCA.stats.ml)
+dev.off
 
 ```
 
@@ -1494,6 +1651,16 @@ varImpPlot(model, main = "Random Forest (Stats) - MDA y Gini") # Gracias a impor
 
 ```
 
+Lo exportamos a PDF...
+
+```{r export_PDF_RF_FT}
+
+pdf("../imagenes/RandomForest_FT.pdf")
+plot(model, main="Random Forest - Solo Stats")
+varImpPlot(model, main = "Random Forest (Stats) - MDA y Gini")
+dev.off
+
+```
 
 Vamos a interpretar estos datos del modelo:
 
@@ -1597,13 +1764,9 @@ Este método, como lo estoy haciendo de las 51490 partidas, puede tardar un poco
 
 ```{r kmeans}
 
-datos.kmeans <- data.ml[1:nrow(data.ml)]
+datos.kmeans <- data.ml[1:nrow(data.ml), ]
 
 clusters <- kmeans(datos.kmeans, centers = 2) #Dos centros, uno por vencedor
-clusters$centers
-
-clusters$cluster
-
 
 # Ahora sacamos las plots
 
@@ -1616,6 +1779,21 @@ plotcluster(datos.kmeans, clusters$cluster)
 
 ```
 
+Ahora lo exportamos a PDF
+
+```{r export_pdf_clusters_kmeans}
+
+pdf("../imagenes/resultados_kmeans.pdf")
+
+clusplot(datos.kmeans, clusters$cluster, color = T, main = "Representación de las 51490 partidas en 2D - Función Clusplot", xlab = "Componente 1", ylab = "Componente 2")
+
+plotcluster(datos.kmeans, clusters$cluster)
+
+dev.off
+
+```
+
+
 Como podemos ver, los datos de ninguna manera son perfectamente separables, sino que las partidas que gana el equipo 1 se centran más a la izquierda en esta componente discriminante que forma x, y las del dos se centran más a la derecha. Como podemos ver, está bastante difuminada la frontera.
 
 
@@ -1627,16 +1805,23 @@ En este caso, el cluster lo haré con un número reducido de partidas, ya que si
 
 #Usamos la matriz de centrado y escalado para que cada coordenada represente el mismo grado de diferencia
 
-d <- dist(data.ml.stats.centscal[1:75, ], method = "euclidean")
+d <- dist(data.ml.stats.centscal[1:60, ], method = "euclidean")
 
 cluster.jerarquico <- hclust(d, method = "complete" )
 
-png("clusterJerárquico.png")
+plot(cluster.jerarquico, cex = 0.5, hang = -1, main="Dendrograma 75 primeras partidas")
+
+```
+
+Exportamos a PDF...
+
+```{r export_PDF_clusterJerarquico}
+
+pdf("../imagenes/clusterJerárquico.pdf")
 
 plot(cluster.jerarquico, cex = 0.5, hang = -1, main="Dendrograma 60 primeras partidas")
 
 dev.off()
-
 
 ```
 
