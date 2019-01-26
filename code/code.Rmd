@@ -53,6 +53,7 @@ Importamos los paquetes necesarios:
 #install.packages("cluster")
 #install.packages("fpc")
 #install.packages("purrr")
+#install.packages("RWeka")
 
 library("corrplot")
 library("dplyr")
@@ -79,6 +80,8 @@ library("aplpack")
 library("cluster")
 library("fpc")
 library("purrr")
+library("RWeka")
+library("data.table")
 
 
 ```
@@ -871,21 +874,6 @@ Como podemos ver en los gráficos, la primera sangre y primera torre suelen caer
 Respecto al primer dragón y el heraldo, que se dan en el medio de la partida, se igualan las tornas.
 
 Sin embargo, con los objetivos de final de partida, como es el primer barón, es el equipo rojo quien lo suele conseguir. En cambio, el equipo azul suele conseguir con un poco más de frecuencia el primer inhibidor.
-
-
-
-## Reglas
-
-Podemos obtener una serie de reglas para confirmar las afirmaciones que he hecho sobre los datos.
-
-
-```{r obtener_reglas}
-
-#data.games.factors <- lapply(data.games, function(x){as.factor(x)})
-#reglas <- apriori(data.games.factors, parameter = list(support = 0.01, confidence = 0.5))
-
-```
-
 
 
 ## Machine Learning
@@ -1822,6 +1810,34 @@ pdf("../imagenes/clusterJerárquico.pdf")
 plot(cluster.jerarquico, cex = 0.5, hang = -1, main="Dendrograma 60 primeras partidas")
 
 dev.off()
+
+```
+
+
+## Reglas
+
+Podemos obtener una serie de reglas para confirmar las afirmaciones que he hecho sobre los datos, y obtener nueva información:
+
+
+```{r obtener_reglas}
+
+# Para obtener las reglas, quiero a los campeones con nombre, y todo lo que tenga que ver con un equipo u otro como factor:
+
+#Lo primero que hago es obtener el dataframe ya creado, y eliminar todas las columnas indeseadas:
+
+data.reglas <- data.games.names[, -12:-26]
+data.reglas <- data.reglas[, -42:-46]
+data.reglas <- data.reglas[, -17:-36]
+data.reglas <- data.reglas[, c(-1, -2, -4)]
+data.reglas <- data.reglas[, c(-19:-28)]
+
+#Estas reglas me impiden convertir a factor los elementos categóricos, por lo que lo mantengo en integer. Solo puedo cambiar el elemento que usaré como clase:
+
+data.reglas$firstBlood <- as.factor(data.reglas$firstBlood)
+
+#Finalmente sacamos las reglas
+
+pa <- PART(firstBlood~., data = data.reglas)
 
 ```
 
