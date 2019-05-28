@@ -1,13 +1,12 @@
 ---
-
 title: "Haciendo Big Data a League of Legends"
 author: "Jorge de Andrés"
 date: "16 de enero de 2019"
 output:
-  html_document: default
-  word_document: default
-  pdf_document: default
   
+  word_document: default
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -91,8 +90,8 @@ Lo primero que voy a hacer es importar todos los datasets:
 
 ```{r import_data_csv}
 
-data.games <- read.csv("../data/games.csv")
-data.champs <- read.csv("../data/champs.csv")
+data.games <- read.csv("../../data/games.csv")
+data.champs <- read.csv("../../data/champs.csv")
 
 ```
 
@@ -102,9 +101,9 @@ Importamos los json:
 
 ```{r import_data_json}
 
-lista.championInfo <- fromJSON(file = "../data/champion_info.json")
-lista.championInfo2 <- fromJSON(file="../data/champion_info_2.json")
-lista.summonerSpell <- fromJSON(file="../data/summoner_spell_info.json")
+lista.championInfo <- fromJSON(file = "../../data/champion_info.json")
+lista.championInfo2 <- fromJSON(file="../../data/champion_info_2.json")
+lista.summonerSpell <- fromJSON(file="../../data/summoner_spell_info.json")
 
 ```
 
@@ -1662,7 +1661,7 @@ Ahora lo voy a hacer con 10 fold X Validation:
 ```{r randomforest_10F-XValidation}
 
 result <- rfcv(data.ml.rf, as.factor(data.ml[, 2]), cv.fold=10) 
-head(result)
+#head(result)
 
 ```
 
@@ -1743,44 +1742,6 @@ Los otros dos dataframes que he creado (champions y total) tendríamos que proba
 ### Algoritmos no supervisados
 
 
-#### K-Means
-
-La técnica de clasificación y clustering no supervisada más utilizada es K-Means. K es el número de grupos que queremos formar.
-Se basa en clustering circular o elíptico, lo cual lo limita, pero tendremos que ver qué resultados nos arroja.
-
-Este método, como lo estoy haciendo de las 51490 partidas, puede tardar un poco en procesar:
-
-```{r kmeans}
-
-datos.kmeans <- data.ml[1:nrow(data.ml), ]
-
-clusters <- kmeans(datos.kmeans, centers = 2) #Dos centros, uno por vencedor
-
-# Ahora sacamos las plots
-
-#Esta representación es sobre los dos ejes principales (componentes) que más explicación dan
-clusplot(datos.kmeans, clusters$cluster, color = T, main = "Representación de las 51490 partidas en 2D - Función Clusplot", xlab = "Componente 1", ylab = "Componente 2")
-
-#Esta representación es con componentes discriminantes, que consisten en las dos dimensiones donde la representación de los datos es más linealmente separable respecto a la predicción de los grupos que ha hecho kmeans
-
-plotcluster(datos.kmeans, clusters$cluster)
-
-```
-
-Ahora lo exportamos a PDF
-
-```{r export_pdf_clusters_kmeans}
-
-pdf("../imagenes/resultados_kmeans.pdf")
-
-clusplot(datos.kmeans, clusters$cluster, color = T, main = "Representación de las 51490 partidas en 2D - Función Clusplot", xlab = "Componente 1", ylab = "Componente 2")
-
-plotcluster(datos.kmeans, clusters$cluster)
-
-dev.off
-
-```
-
 
 Como podemos ver, los datos de ninguna manera son perfectamente separables, sino que las partidas que gana el equipo 1 se centran más a la izquierda en esta componente discriminante que forma x, y las del dos se centran más a la derecha. Como podemos ver, está bastante difuminada la frontera.
 
@@ -1810,66 +1771,6 @@ pdf("../imagenes/clusterJerárquico.pdf")
 plot(cluster.jerarquico, cex = 0.5, hang = -1, main="Dendrograma 60 primeras partidas")
 
 dev.off()
-
-```
-
-
-## Rule Mining - Reglas
-
-Podemos obtener una serie de reglas para confirmar las afirmaciones que he hecho sobre los datos, y obtener nueva información:
-
-### Reglas respecto a First Blood
-
-```{r obtener_reglas_firstblood}
-
-#Lo primero que hago es obtener el dataframe ya creado, y eliminar todas las columnas indeseadas:
-
-data.reglas <- data.games.names[, -12:-26]
-data.reglas <- data.reglas[, -42:-46]
-data.reglas <- data.reglas[, -17:-36]
-data.reglas <- data.reglas[, c(-1, -2, -4)]
-data.reglas <- data.reglas[, c(-19:-28)]
-
-data.reglas.fbl = data.reglas
-
-#Estas reglas me impiden convertir a factor los elementos categóricos, por lo que lo mantengo en integer. Solo puedo cambiar el elemento que usaré como clase:
-
-data.reglas.fbl$firstBlood <- as.factor(data.reglas.fbl$firstBlood)
-
-#Finalmente sacamos las reglas
-
-part_firstblood <- PART(firstBlood~., data = data.reglas.fbl)
-oneR_firstBlood <- OneR(firstBlood~., data = data.reglas.fbl)
-jrip_firstBlood <- JRip(firstBlood~., data = data.reglas.fbl)
-
-```
-
-
-### Reglas Respecto a First Inhibitor
-
-```{r obtener_reglas_firstinhibitor}
-
-data.reglas.fin = data.reglas
-
-data.reglas.fin$firstInhibitor <- as.factor(data.reglas.fin$firstInhibitor)
-
-part_firstInhib <- PART(firstInhibitor~., data = data.reglas.fin)
-oneR_firstInhib <- OneR(firstInhibitor~., data = data.reglas.fin)
-jrip_firstInhib <- JRip(firstInhibitor~., data = data.reglas.fin)
-
-```
-
-### Reglas respecto al Ganador
-
-```{r obtener_reglas_winner}
-
-data.reglas.win = data.reglas
-
-data.reglas.win$winner <- as.factor(data.reglas.win$winner)
-
-part_winner <- PART(winner~., data = data.reglas.win)
-oneR_winner <- OneR(winner~., data = data.reglas.win)
-jrip_winner <- JRip(winner~., data = data.reglas.win)
 
 ```
 
